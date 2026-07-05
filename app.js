@@ -4,7 +4,7 @@
 // IMPORTANTE: troque pela URL pública do seu backend no Railway.
 // Exemplo: 'https://seu-projeto-production.up.railway.app'
 // (sem barra "/" no final)
-const API_BASE_URL = 'https://SEU-BACKEND.up.railway.app';
+const API_BASE_URL = 'https://avalia-o-de-marketing-production.up.railway.app';
 
 async function apiRequest(path, options = {}) {
   let res;
