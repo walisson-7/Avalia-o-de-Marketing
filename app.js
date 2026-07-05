@@ -1,7 +1,7 @@
 // ==============================
 // CONFIGURAÇÃO DA API
 // ==============================
-const API_BASE_URL = 'https://avalia-o-de-marketing-production.up.railway.app/';
+const API_BASE_URL = 'https://avalia-o-de-marketing-production.up.railway.app';
 
 async function api(path, options = {}) {
   const res = await fetch(`${API_BASE_URL}${path}`, {
