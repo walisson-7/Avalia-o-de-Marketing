@@ -1,48 +1,62 @@
 // ==============================
-// DATABASE (localStorage)
+// CONFIGURAÇÃO DA API
 // ==============================
-const DB = {
-  get: (k) => { try { return JSON.parse(localStorage.getItem('mkt_'+k) || 'null'); } catch(e) { return null; } },
-  set: (k, v) => localStorage.setItem('mkt_'+k, JSON.stringify(v)),
-  init() {
-    if (!DB.get('users')) {
-      DB.set('users', [
-        { id: 1, name: 'BIANCA FERREIRA', username: 'BIANCA FERREIRA', password: '1234567', role: 'analista' }
-      ]);
-    }
-    if (!DB.get('atividades')) DB.set('atividades', []);
-    if (!DB.get('links')) DB.set('links', []);
-    if (!DB.get('avaliacoes')) DB.set('avaliacoes', []);
-  }
-};
+const API_BASE_URL = 'https://avalia-o-de-marketing-production.up.railway.app/';
 
-DB.init();
+async function api(path, options = {}) {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    headers: { 'Content-Type': 'application/json' },
+    ...options,
+  });
+  if (!res.ok) {
+    let detail = 'Erro na requisição ao servidor.';
+    try {
+      const err = await res.json();
+      detail = err.detail || detail;
+    } catch (e) {}
+    throw new Error(detail);
+  }
+  if (res.status === 204) return null;
+  return res.json();
+}
 
 // ==============================
 // AUTH
 // ==============================
 let currentUser = null;
 
-function doLogin() {
+async function doLogin() {
   const user = document.getElementById('login-user').value.trim();
   const pass = document.getElementById('login-pass').value.trim();
-  const users = DB.get('users') || [];
-  const found = users.find(u => u.username === user && u.password === pass);
-  document.getElementById('login-error').textContent = '';
-  if (!found) {
-    document.getElementById('login-error').textContent = 'Usuário ou senha incorretos.';
+  const errEl = document.getElementById('login-error');
+  errEl.textContent = '';
+
+  if (API_BASE_URL.includes('COLOQUE_AQUI')) {
+    errEl.textContent = 'Configure a URL do backend em app.js (API_BASE_URL) antes de continuar.';
     return;
   }
-  currentUser = found;
-  document.getElementById('login-screen').style.display = 'none';
-  document.getElementById('app').style.display = 'block';
-  buildSidebar();
-  if (found.role === 'analista') navigateTo('dashboard');
-  else navigateTo('aval-dashboard');
+
+  try {
+    const data = await api('/api/login', {
+      method: 'POST',
+      body: JSON.stringify({ username: user, password: pass }),
+    });
+    currentUser = { id: data.id, name: data.nome, username: data.username, role: data.role };
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    buildSidebar();
+    closeSidebar();
+    if (currentUser.role === 'analista') navigateTo('dashboard');
+    else navigateTo('aval-dashboard');
+  } catch (err) {
+    errEl.textContent = err.message || 'Usuário ou senha incorretos.';
+  }
 }
 
 function doLogout() {
   currentUser = null;
+  navHistory = [];
+  currentPageId = null;
   document.getElementById('login-screen').style.display = 'flex';
   document.getElementById('app').style.display = 'none';
   document.getElementById('login-user').value = '';
@@ -82,6 +96,8 @@ function buildSidebar() {
   document.getElementById('sidebar-avatar').textContent = currentUser.name.charAt(0).toUpperCase();
   document.getElementById('sidebar-username').textContent = currentUser.name;
   document.getElementById('sidebar-userrole').textContent = role === 'analista' ? 'Analista' : 'Avaliador';
+  const mobileAvatar = document.getElementById('mobile-topbar-avatar');
+  if (mobileAvatar) mobileAvatar.textContent = currentUser.name.charAt(0).toUpperCase();
   const nav = document.getElementById('sidebar-nav');
   nav.innerHTML = '';
   const menus = role === 'analista' ? MENUS.analista : MENUS.avaliador;
@@ -94,14 +110,62 @@ function buildSidebar() {
       el.className = 'nav-item';
       el.dataset.page = item.id;
       el.innerHTML = `<svg viewBox="0 0 24 24"><path d="${item.icon}"/></svg>${item.label}`;
-      el.onclick = () => navigateTo(item.id);
+      el.onclick = () => { navigateTo(item.id); closeSidebar(); };
       secEl.appendChild(el);
     });
     nav.appendChild(secEl);
   });
 }
 
-function navigateTo(pageId) {
+// ==============================
+// MOBILE SIDEBAR (drawer)
+// ==============================
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebar-overlay');
+  const isOpen = sidebar.classList.toggle('open');
+  overlay.classList.toggle('open', isOpen);
+  document.body.style.overflow = isOpen ? 'hidden' : '';
+}
+
+function closeSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('sidebar-overlay');
+  if (sidebar) sidebar.classList.remove('open');
+  if (overlay) overlay.classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeSidebar();
+});
+
+// ==============================
+// HISTÓRICO DE NAVEGAÇÃO (botão Voltar)
+// ==============================
+let currentPageId = null;
+let navHistory = [];
+
+function updateBackButton() {
+  const btn = document.getElementById('back-btn');
+  if (!btn) return;
+  btn.classList.toggle('hidden', navHistory.length === 0);
+}
+
+function goBack() {
+  if (!navHistory.length) return;
+  const prevPage = navHistory.pop();
+  navigateTo(prevPage, false);
+  updateBackButton();
+}
+
+function navigateTo(pageId, pushHistory = true) {
+  if (pushHistory && currentPageId && currentPageId !== pageId) {
+    navHistory.push(currentPageId);
+  }
+  currentPageId = pageId;
+  updateBackButton();
+
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
   const page = document.getElementById('page-' + pageId);
@@ -136,39 +200,28 @@ function toast(msg, type = 'info') {
 function openModal(id) { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 
-function uid() { return Date.now() + '-' + Math.random().toString(36).substr(2,6); }
-
-function getAvaliadores() {
-  return (DB.get('users') || []).filter(u => u.role === 'avaliador');
-}
-
-function getAvaliacoes() { return DB.get('avaliacoes') || []; }
-
-function getUserScore(userId) {
-  const avals = getAvaliacoes().filter(a => a.userId === userId);
-  return avals.reduce((sum, a) => sum + (a.total || 0), 0);
-}
-
-function getUserAvalCount(userId) {
-  return getAvaliacoes().filter(a => a.userId === userId).length;
-}
-
-function hasUserEvaluatedLink(userId, linkId) {
-  return getAvaliacoes().some(a => a.userId === userId && a.linkId === linkId);
+function fmtData(iso) {
+  try { return new Date(iso).toLocaleDateString('pt-BR'); } catch(e) { return ''; }
 }
 
 // ==============================
 // ANALISTA — DASHBOARD
 // ==============================
-function renderDashboard() {
-  const avaliadores = getAvaliadores();
-  const links = DB.get('links') || [];
-  const atividades = DB.get('atividades') || [];
-  const avals = getAvaliacoes();
-  
-  // Who responded this week (at least one evaluation)
-  const respondidos = avaliadores.filter(av => avals.some(a => a.userId === av.id));
-  const pendentes = avaliadores.filter(av => !avals.some(a => a.userId === av.id));
+async function renderDashboard() {
+  let avaliadores = [], links = [], atividades = [];
+  try {
+    [avaliadores, links, atividades] = await Promise.all([
+      api('/api/avaliadores'),
+      api('/api/links'),
+      api('/api/atividades'),
+    ]);
+  } catch (err) {
+    toast(err.message, 'error');
+    return;
+  }
+
+  const respondidos = avaliadores.filter(av => av.total_avaliacoes > 0);
+  const pendentes = avaliadores.filter(av => av.total_avaliacoes === 0);
 
   document.getElementById('dashboard-stats').innerHTML = `
     <div class="stat-card highlight clickable-card" onclick="navigateTo('avaliadores')">
@@ -193,7 +246,6 @@ function renderDashboard() {
     </div>
   `;
 
-  // Responded list
   const rEl = document.getElementById('responded-list');
   if (!respondidos.length) {
     rEl.innerHTML = '<div class="empty-state" style="padding:24px"><p>Nenhum avaliador respondeu ainda</p></div>';
@@ -201,17 +253,16 @@ function renderDashboard() {
     rEl.innerHTML = respondidos.map(av => `
       <div class="evaluator-row">
         <div class="evaluator-info">
-          <div class="evaluator-avatar">${av.name.charAt(0)}</div>
+          <div class="evaluator-avatar">${av.nome.charAt(0)}</div>
           <div>
-            <div style="font-size:14px;font-weight:600">${av.name}</div>
-            <div style="font-size:12px;color:var(--text-muted)">${getUserAvalCount(av.id)} avaliação(ões)</div>
+            <div style="font-size:14px;font-weight:600">${av.nome}</div>
+            <div style="font-size:12px;color:var(--text-muted)">${av.total_avaliacoes} avaliação(ões)</div>
           </div>
         </div>
         <span class="badge badge-green">Respondeu</span>
       </div>`).join('');
   }
 
-  // Pending list
   const pEl = document.getElementById('pending-list');
   if (!pendentes.length) {
     pEl.innerHTML = '<div class="empty-state" style="padding:24px"><p>Todos responderam! 🎉</p></div>';
@@ -219,9 +270,9 @@ function renderDashboard() {
     pEl.innerHTML = pendentes.map(av => `
       <div class="evaluator-row">
         <div class="evaluator-info">
-          <div class="evaluator-avatar" style="background:#ddd;color:#777">${av.name.charAt(0)}</div>
+          <div class="evaluator-avatar" style="background:#ddd;color:#777">${av.nome.charAt(0)}</div>
           <div>
-            <div style="font-size:14px;font-weight:600">${av.name}</div>
+            <div style="font-size:14px;font-weight:600">${av.nome}</div>
             <div style="font-size:12px;color:var(--text-muted)">Sem avaliações</div>
           </div>
         </div>
@@ -233,14 +284,20 @@ function renderDashboard() {
 // ==============================
 // ANALISTA — ATIVIDADES
 // ==============================
-function saveAtividade() {
+async function saveAtividade() {
   const semana = document.getElementById('ativ-semana').value.trim();
   const titulo = document.getElementById('ativ-titulo').value.trim();
   const desc = document.getElementById('ativ-desc').value.trim();
   if (!semana || !titulo) { toast('Preencha semana e título', 'error'); return; }
-  const atividades = DB.get('atividades') || [];
-  atividades.unshift({ id: uid(), semana, titulo, desc, createdAt: new Date().toLocaleDateString('pt-BR') });
-  DB.set('atividades', atividades);
+  try {
+    await api(`/api/atividades?criado_por=${currentUser.id}`, {
+      method: 'POST',
+      body: JSON.stringify({ semana, titulo, descricao: desc || null }),
+    });
+  } catch (err) {
+    toast(err.message, 'error');
+    return;
+  }
   document.getElementById('ativ-semana').value = '';
   document.getElementById('ativ-titulo').value = '';
   document.getElementById('ativ-desc').value = '';
@@ -248,8 +305,11 @@ function saveAtividade() {
   renderAtividades();
 }
 
-function renderAtividades() {
-  const atividades = DB.get('atividades') || [];
+async function renderAtividades() {
+  let atividades = [];
+  try { atividades = await api('/api/atividades'); }
+  catch (err) { toast(err.message, 'error'); return; }
+
   const el = document.getElementById('atividades-list');
   if (!atividades.length) {
     el.innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/></svg><h3>Nenhuma atividade publicada</h3><p>Crie a primeira atividade acima</p></div>';
@@ -261,17 +321,16 @@ function renderAtividades() {
       <div class="task-body" style="flex:1">
         <div class="task-week">${a.semana}</div>
         <div class="task-title">${a.titulo}</div>
-        ${a.desc ? `<div class="task-desc">${a.desc}</div>` : ''}
-        <div style="margin-top:8px;font-size:11px;color:#bbb">Publicado em ${a.createdAt}</div>
+        ${a.descricao ? `<div class="task-desc">${a.descricao}</div>` : ''}
+        <div style="margin-top:8px;font-size:11px;color:#bbb">Publicado em ${fmtData(a.created_at)}</div>
       </div>
-      <button class="btn btn-ghost" style="flex-shrink:0;padding:7px 12px;font-size:12px" onclick="deleteAtividade('${a.id}')">Remover</button>
+      <button class="btn btn-ghost" style="flex-shrink:0;padding:7px 12px;font-size:12px" onclick="deleteAtividade(${a.id})">Remover</button>
     </div>`).join('');
 }
 
-function deleteAtividade(id) {
-  let atividades = DB.get('atividades') || [];
-  atividades = atividades.filter(a => a.id !== id);
-  DB.set('atividades', atividades);
+async function deleteAtividade(id) {
+  try { await api(`/api/atividades/${id}`, { method: 'DELETE' }); }
+  catch (err) { toast(err.message, 'error'); return; }
   renderAtividades();
   toast('Atividade removida', 'info');
 }
@@ -279,14 +338,20 @@ function deleteAtividade(id) {
 // ==============================
 // ANALISTA — LINKS
 // ==============================
-function saveLink() {
+async function saveLink() {
   const semana = document.getElementById('link-semana').value.trim();
   const titulo = document.getElementById('link-titulo').value.trim();
   const url = document.getElementById('link-url').value.trim();
   if (!semana || !titulo || !url) { toast('Preencha todos os campos', 'error'); return; }
-  const links = DB.get('links') || [];
-  links.unshift({ id: uid(), semana, titulo, url, createdAt: new Date().toLocaleDateString('pt-BR') });
-  DB.set('links', links);
+  try {
+    await api(`/api/links?criado_por=${currentUser.id}`, {
+      method: 'POST',
+      body: JSON.stringify({ semana, titulo, url }),
+    });
+  } catch (err) {
+    toast(err.message, 'error');
+    return;
+  }
   document.getElementById('link-semana').value = '';
   document.getElementById('link-titulo').value = '';
   document.getElementById('link-url').value = '';
@@ -294,16 +359,17 @@ function saveLink() {
   renderLinksAnalista();
 }
 
-function renderLinksAnalista() {
-  const links = DB.get('links') || [];
+async function renderLinksAnalista() {
+  let links = [];
+  try { links = await api('/api/links'); }
+  catch (err) { toast(err.message, 'error'); return; }
+
   const el = document.getElementById('links-analista-list');
   if (!links.length) {
     el.innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg><h3>Nenhum link compartilhado</h3><p>Adicione o primeiro link acima</p></div>';
     return;
   }
-  el.innerHTML = links.map(l => {
-    const avals = getAvaliacoes().filter(a => a.linkId === l.id);
-    return `
+  el.innerHTML = links.map(l => `
     <div class="link-card">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
         <div>
@@ -311,26 +377,21 @@ function renderLinksAnalista() {
           <div class="link-title">${l.titulo}</div>
         </div>
         <div style="display:flex;gap:8px;align-items:center">
-          <span class="badge badge-orange">${avals.length} avaliação(ões)</span>
-          <button class="btn btn-ghost" style="padding:5px 10px;font-size:12px" onclick="deleteLink('${l.id}')">Remover</button>
+          <span class="badge badge-orange">${l.total_avaliacoes} avaliação(ões)</span>
+          <button class="btn btn-ghost" style="padding:5px 10px;font-size:12px" onclick="deleteLink(${l.id})">Remover</button>
         </div>
       </div>
       <div class="link-url">
         <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:var(--brand);flex-shrink:0"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg>
         <a href="${l.url}" target="_blank">${l.url}</a>
       </div>
-      <div style="font-size:11px;color:#bbb;margin-top:4px">Adicionado em ${l.createdAt}</div>
-    </div>`;
-  }).join('');
+      <div style="font-size:11px;color:#bbb;margin-top:4px">Adicionado em ${fmtData(l.created_at)}</div>
+    </div>`).join('');
 }
 
-function deleteLink(id) {
-  let links = DB.get('links') || [];
-  links = links.filter(l => l.id !== id);
-  DB.set('links', links);
-  // also remove evaluations for this link
-  let avals = getAvaliacoes().filter(a => a.linkId !== id);
-  DB.set('avaliacoes', avals);
+async function deleteLink(id) {
+  try { await api(`/api/links/${id}`, { method: 'DELETE' }); }
+  catch (err) { toast(err.message, 'error'); return; }
   renderLinksAnalista();
   toast('Link removido', 'info');
 }
@@ -338,15 +399,20 @@ function deleteLink(id) {
 // ==============================
 // ANALISTA — AVALIADORES
 // ==============================
-function saveAvaliador() {
+async function saveAvaliador() {
   const nome = document.getElementById('aval-nome').value.trim();
   const username = document.getElementById('aval-user').value.trim().replace(/\s+/g, '');
   const password = document.getElementById('aval-pass').value.trim();
   if (!nome || !username || !password) { toast('Preencha todos os campos', 'error'); return; }
-  const users = DB.get('users') || [];
-  if (users.find(u => u.username === username)) { toast('Usuário já existe', 'error'); return; }
-  users.push({ id: uid(), name: nome, username, password, role: 'avaliador' });
-  DB.set('users', users);
+  try {
+    await api('/api/avaliadores', {
+      method: 'POST',
+      body: JSON.stringify({ nome, username, password }),
+    });
+  } catch (err) {
+    toast(err.message, 'error');
+    return;
+  }
   document.getElementById('aval-nome').value = '';
   document.getElementById('aval-user').value = '';
   document.getElementById('aval-pass').value = '';
@@ -354,8 +420,11 @@ function saveAvaliador() {
   renderAvaliadores();
 }
 
-function renderAvaliadores() {
-  const avaliadores = getAvaliadores();
+async function renderAvaliadores() {
+  let avaliadores = [];
+  try { avaliadores = await api('/api/avaliadores'); }
+  catch (err) { toast(err.message, 'error'); return; }
+
   const statsEl = document.getElementById('aval-stats');
   statsEl.innerHTML = `
     <div class="stat-card highlight">
@@ -365,7 +434,7 @@ function renderAvaliadores() {
     </div>
     <div class="stat-card">
       <div class="stat-icon"><svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>
-      <div class="stat-value">${avaliadores.filter(av => getUserAvalCount(av.id) > 0).length}</div>
+      <div class="stat-value">${avaliadores.filter(av => av.total_avaliacoes > 0).length}</div>
       <div class="stat-label">Participaram</div>
     </div>
   `;
@@ -380,24 +449,21 @@ function renderAvaliadores() {
       <td><strong>${i+1}</strong></td>
       <td>
         <div style="display:flex;align-items:center;gap:10px">
-          <div class="evaluator-avatar" style="width:32px;height:32px;font-size:12px">${av.name.charAt(0)}</div>
-          ${av.name}
+          <div class="evaluator-avatar" style="width:32px;height:32px;font-size:12px">${av.nome.charAt(0)}</div>
+          ${av.nome}
         </div>
       </td>
       <td><code style="background:var(--surface2);padding:3px 8px;border-radius:4px;font-size:12px">${av.username}</code></td>
-      <td><span class="badge ${getUserAvalCount(av.id) > 0 ? 'badge-green' : 'badge-gray'}">${getUserAvalCount(av.id)}</span></td>
+      <td><span class="badge ${av.total_avaliacoes > 0 ? 'badge-green' : 'badge-gray'}">${av.total_avaliacoes}</span></td>
       <td>
-        <button class="btn btn-ghost" style="padding:5px 12px;font-size:12px" onclick="deleteAvaliador('${av.id}')">Remover</button>
+        <button class="btn btn-ghost" style="padding:5px 12px;font-size:12px" onclick="deleteAvaliador(${av.id})">Remover</button>
       </td>
     </tr>`).join('');
 }
 
-function deleteAvaliador(id) {
-  let users = DB.get('users') || [];
-  users = users.filter(u => u.id !== id);
-  DB.set('users', users);
-  let avals = getAvaliacoes().filter(a => a.userId !== id);
-  DB.set('avaliacoes', avals);
+async function deleteAvaliador(id) {
+  try { await api(`/api/avaliadores/${id}`, { method: 'DELETE' }); }
+  catch (err) { toast(err.message, 'error'); return; }
   renderAvaliadores();
   toast('Avaliador removido', 'info');
 }
@@ -405,30 +471,20 @@ function deleteAvaliador(id) {
 // ==============================
 // RANKING
 // ==============================
-function renderRanking(containerId) {
-  const links = DB.get('links') || [];
-  const avals = getAvaliacoes();
+async function renderRanking(containerId) {
+  let ranking = [];
+  try { ranking = await api('/api/ranking'); }
+  catch (err) { toast(err.message, 'error'); return; }
 
   const el = document.getElementById(containerId);
-  if (!links.length) {
+  if (!ranking.length) {
     el.innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/></svg><h3>Ranking vazio</h3><p>Nenhum link foi compartilhado ainda</p></div>';
     return;
   }
 
-  // Build per-link aggregated scores
-  const ranked = links.map(l => {
-    const linkAvals = avals.filter(a => a.linkId === l.id);
-    const totalPts = linkAvals.reduce((s, a) => s + (a.total || 0), 0);
-    const avgPrec = linkAvals.length ? (linkAvals.reduce((s,a)=>s+a.precificacao,0)/linkAvals.length).toFixed(1) : '—';
-    const avgOrg  = linkAvals.length ? (linkAvals.reduce((s,a)=>s+a.organizacao,0)/linkAvals.length).toFixed(1) : '—';
-    const avgExec = linkAvals.length ? (linkAvals.reduce((s,a)=>s+a.execucao,0)/linkAvals.length).toFixed(1) : '—';
-    const avgCriat= linkAvals.length ? (linkAvals.reduce((s,a)=>s+a.criatividade,0)/linkAvals.length).toFixed(1) : '—';
-    return { ...l, totalPts, count: linkAvals.length, avgPrec, avgOrg, avgExec, avgCriat };
-  }).sort((a, b) => b.totalPts - a.totalPts);
+  const maxPts = ranking[0].total_pts || 1;
 
-  const maxPts = ranked[0].totalPts || 1;
-
-  el.innerHTML = ranked.map((l, i) => {
+  el.innerHTML = ranking.map((l, i) => {
     const posClass = i===0 ? 'pos-1' : i===1 ? 'pos-2' : i===2 ? 'pos-3' : 'pos-other';
     return `
     <div class="ranking-item" style="flex-direction:column;align-items:stretch;gap:0;padding:18px 20px">
@@ -440,15 +496,15 @@ function renderRanking(containerId) {
           <a href="${l.url}" target="_blank" style="font-size:12px;color:var(--text-muted);word-break:break-all;text-decoration:none;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">${l.url}</a>
         </div>
         <div style="text-align:right;flex-shrink:0">
-          <div class="ranking-score">${l.totalPts} <span>pts totais</span></div>
+          <div class="ranking-score">${l.total_pts} <span>pts totais</span></div>
           <div style="font-size:12px;color:var(--text-muted);margin-top:2px">${l.count} avaliação(ões)</div>
         </div>
       </div>
       <div class="progress-bar" style="margin-bottom:12px">
-        <div class="progress-fill" style="width:${maxPts > 0 ? (l.totalPts/maxPts*100) : 0}%"></div>
+        <div class="progress-fill" style="width:${maxPts > 0 ? (l.total_pts/maxPts*100) : 0}%"></div>
       </div>
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
-        ${[['Precificação', l.avgPrec],['Organização', l.avgOrg],['Execução', l.avgExec],['Criatividade', l.avgCriat]].map(([label, avg]) => `
+        ${[['Precificação', l.media_precificacao],['Organização', l.media_organizacao],['Execução', l.media_execucao],['Criatividade', l.media_criatividade]].map(([label, avg]) => `
         <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 10px;text-align:center">
           <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px">${label}</div>
           <div style="font-size:18px;font-weight:800;color:var(--brand)">${avg}</div>
@@ -460,9 +516,9 @@ function renderRanking(containerId) {
 }
 
 function confirmZerarRanking() { openModal('modal-zerar'); }
-function zerarRanking() {
-  DB.set('links', []);
-  DB.set('avaliacoes', []);
+async function zerarRanking() {
+  try { await api('/api/ranking/zerar', { method: 'POST' }); }
+  catch (err) { toast(err.message, 'error'); return; }
   closeModal('modal-zerar');
   toast('Ranking zerado e links apagados com sucesso!', 'success');
   renderRanking('ranking-list-analista');
@@ -472,12 +528,21 @@ function zerarRanking() {
 // ==============================
 // AVALIADOR — DASHBOARD
 // ==============================
-function renderAvalDashboard() {
+async function renderAvalDashboard() {
   document.getElementById('aval-welcome').textContent = `Olá, ${currentUser.name}! 👋`;
-  const links = DB.get('links') || [];
-  const pendentes = links.filter(l => !hasUserEvaluatedLink(currentUser.id, l.id));
-  const avals = getAvaliacoes().filter(a => a.userId === currentUser.id);
-  const myScore = getUserScore(currentUser.id);
+  let links = [], minhasAvaliacoes = [];
+  try {
+    [links, minhasAvaliacoes] = await Promise.all([
+      api('/api/links'),
+      api(`/api/avaliacoes?avaliador_id=${currentUser.id}`),
+    ]);
+  } catch (err) {
+    toast(err.message, 'error');
+    return;
+  }
+
+  const pendentes = links.filter(l => !minhasAvaliacoes.some(a => a.link_id === l.id));
+  const myScore = minhasAvaliacoes.reduce((s, a) => s + a.total, 0);
 
   document.getElementById('aval-dashboard-stats').innerHTML = `
     <div class="stat-card highlight clickable-card" onclick="navigateTo('ranking-aval')">
@@ -487,7 +552,7 @@ function renderAvalDashboard() {
     </div>
     <div class="stat-card clickable-card" onclick="navigateTo('aval-links')">
       <div class="stat-icon"><svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>
-      <div class="stat-value">${avals.length}</div>
+      <div class="stat-value">${minhasAvaliacoes.length}</div>
       <div class="stat-label">Avaliações feitas</div>
     </div>
     <div class="stat-card clickable-card" onclick="navigateTo('aval-links')">
@@ -497,7 +562,10 @@ function renderAvalDashboard() {
     </div>
   `;
 
-  const atividades = (DB.get('atividades') || []).slice(0, 2);
+  let atividades = [];
+  try { atividades = (await api('/api/atividades')).slice(0, 2); }
+  catch (err) { atividades = []; }
+
   const el = document.getElementById('aval-tasks-preview');
   if (!atividades.length) {
     el.innerHTML = '<div style="text-align:center;padding:24px;color:var(--text-muted);font-size:13px">Nenhuma atividade publicada ainda</div>';
@@ -509,7 +577,7 @@ function renderAvalDashboard() {
       <div class="task-body">
         <div class="task-week">${a.semana}</div>
         <div class="task-title">${a.titulo}</div>
-        ${a.desc ? `<div class="task-desc">${a.desc}</div>` : ''}
+        ${a.descricao ? `<div class="task-desc">${a.descricao}</div>` : ''}
       </div>
     </div>`).join('');
 }
@@ -517,8 +585,11 @@ function renderAvalDashboard() {
 // ==============================
 // AVALIADOR — TAREFAS
 // ==============================
-function renderAvalTarefas() {
-  const atividades = DB.get('atividades') || [];
+async function renderAvalTarefas() {
+  let atividades = [];
+  try { atividades = await api('/api/atividades'); }
+  catch (err) { toast(err.message, 'error'); return; }
+
   const el = document.getElementById('aval-tarefas-list');
   if (!atividades.length) {
     el.innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/></svg><h3>Nenhuma atividade ainda</h3><p>A analista ainda não publicou atividades</p></div>';
@@ -530,8 +601,8 @@ function renderAvalTarefas() {
       <div class="task-body" style="flex:1">
         <div class="task-week">${a.semana}</div>
         <div class="task-title">${a.titulo}</div>
-        ${a.desc ? `<div class="task-desc">${a.desc}</div>` : ''}
-        <div style="margin-top:8px;font-size:11px;color:#bbb">Publicado em ${a.createdAt}</div>
+        ${a.descricao ? `<div class="task-desc">${a.descricao}</div>` : ''}
+        <div style="margin-top:8px;font-size:11px;color:#bbb">Publicado em ${fmtData(a.created_at)}</div>
       </div>
     </div>`).join('');
 }
@@ -539,8 +610,18 @@ function renderAvalTarefas() {
 // ==============================
 // AVALIADOR — LINKS & AVALIAÇÃO
 // ==============================
-function renderAvalLinks() {
-  const links = DB.get('links') || [];
+async function renderAvalLinks() {
+  let links = [], minhasAvaliacoes = [];
+  try {
+    [links, minhasAvaliacoes] = await Promise.all([
+      api('/api/links'),
+      api(`/api/avaliacoes?avaliador_id=${currentUser.id}`),
+    ]);
+  } catch (err) {
+    toast(err.message, 'error');
+    return;
+  }
+
   const el = document.getElementById('aval-links-list');
   if (!links.length) {
     el.innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg><h3>Nenhum link disponível</h3><p>Aguarde a analista compartilhar links</p></div>';
@@ -548,11 +629,11 @@ function renderAvalLinks() {
   }
 
   el.innerHTML = links.map(l => {
-    const alreadyEval = hasUserEvaluatedLink(currentUser.id, l.id);
-    const myEval = getAvaliacoes().find(a => a.userId === currentUser.id && a.linkId === l.id);
+    const myEval = minhasAvaliacoes.find(a => a.link_id === l.id);
+    const alreadyEval = !!myEval;
 
     let evalSection = '';
-    if (alreadyEval && myEval) {
+    if (alreadyEval) {
       evalSection = `
         <div class="avaliacao-already">
           <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
@@ -566,14 +647,14 @@ function renderAvalLinks() {
           <div class="criteria-item">
             <div class="criteria-label">${critLabel(crit)}</div>
             <div class="stars" id="stars-${l.id}-${crit}">
-              ${[1,2,3,4,5].map(n => `<div class="star" onclick="setStar('${l.id}','${crit}',${n})" data-val="${n}">${n}</div>`).join('')}
+              ${[1,2,3,4,5].map(n => `<div class="star" onclick="setStar(${l.id},'${crit}',${n})" data-val="${n}">${n}</div>`).join('')}
             </div>
             <div class="criteria-score">0 a 5 pontos (+${5} máx)</div>
           </div>`).join('')}
         </div>
         <div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px">
           <div style="font-size:13px;color:var(--text-muted)">Total máximo: <strong>20 pontos</strong></div>
-          <button class="btn btn-brand" onclick="submitAvaliacao('${l.id}')">
+          <button class="btn btn-brand" onclick="submitAvaliacao(${l.id})">
             <svg viewBox="0 0 24 24" fill="white"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
             Enviar Avaliação
           </button>
@@ -601,7 +682,6 @@ function renderAvalLinks() {
     </div>`;
   }).join('');
 
-  // Init star scores tracker
   window._stars = window._stars || {};
 }
 
@@ -615,7 +695,6 @@ window._stars = {};
 function setStar(linkId, crit, val) {
   if (!window._stars[linkId]) window._stars[linkId] = {};
   window._stars[linkId][crit] = val;
-  // Update UI
   const container = document.getElementById(`stars-${linkId}-${crit}`);
   if (!container) return;
   container.querySelectorAll('.star').forEach(s => {
@@ -623,27 +702,31 @@ function setStar(linkId, crit, val) {
   });
 }
 
-function submitAvaliacao(linkId) {
+async function submitAvaliacao(linkId) {
   const s = window._stars[linkId] || {};
   const prec = s.precificacao || 0;
   const org = s.organizacao || 0;
   const exec = s.execucao || 0;
   const criat = s.criatividade || 0;
   if (!prec && !org && !exec && !criat) { toast('Avalie pelo menos um critério', 'error'); return; }
-  
-  const avals = getAvaliacoes();
-  avals.push({
-    id: uid(),
-    userId: currentUser.id,
-    linkId,
-    precificacao: prec,
-    organizacao: org,
-    execucao: exec,
-    criatividade: criat,
-    total: prec + org + exec + criat,
-    createdAt: new Date().toLocaleDateString('pt-BR')
-  });
-  DB.set('avaliacoes', avals);
+
+  try {
+    await api('/api/avaliacoes', {
+      method: 'POST',
+      body: JSON.stringify({
+        link_id: linkId,
+        avaliador_id: currentUser.id,
+        precificacao: prec,
+        organizacao: org,
+        execucao: exec,
+        criatividade: criat,
+      }),
+    });
+  } catch (err) {
+    toast(err.message, 'error');
+    return;
+  }
+
   delete window._stars[linkId];
   toast(`Avaliação enviada! +${prec+org+exec+criat} pontos`, 'success');
   renderAvalLinks();
