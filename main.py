@@ -2,7 +2,7 @@ import bcrypt
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import func, inspect, text
 
 import models
 import schemas
@@ -10,6 +10,25 @@ from database import engine, get_db, Base
 
 # Cria as tabelas automaticamente se não existirem
 Base.metadata.create_all(bind=engine)
+
+
+def migrar_coluna_atividade_id_em_links():
+    """
+    Migração segura e automática: se o banco já existia antes desta atualização,
+    a tabela 'links' não tem a coluna 'atividade_id'. Este bloco só ADICIONA a
+    coluna se ela ainda não existir — não apaga nem altera nenhum dado.
+    """
+    inspetor = inspect(engine)
+    if "links" not in inspetor.get_table_names():
+        return
+    colunas = [c["name"] for c in inspetor.get_columns("links")]
+    if "atividade_id" in colunas:
+        return
+    with engine.begin() as conn:
+        conn.execute(text("ALTER TABLE links ADD COLUMN atividade_id INTEGER REFERENCES atividades(id)"))
+
+
+migrar_coluna_atividade_id_em_links()
 
 app = FastAPI(title="Sistema de Avaliação - Marketing API")
 
@@ -132,13 +151,17 @@ def remover_atividade(atividade_id: int, db: Session = Depends(get_db)):
 # LINKS
 # ==============================
 @app.get("/api/links", response_model=list[schemas.LinkOut])
-def listar_links(db: Session = Depends(get_db)):
-    links = db.query(models.Link).order_by(models.Link.created_at.desc()).all()
+def listar_links(atividade_id: int | None = None, db: Session = Depends(get_db)):
+    query = db.query(models.Link)
+    if atividade_id is not None:
+        query = query.filter(models.Link.atividade_id == atividade_id)
+    links = query.order_by(models.Link.created_at.desc()).all()
     resultado = []
     for l in links:
         total = db.query(models.Avaliacao).filter(models.Avaliacao.link_id == l.id).count()
         resultado.append(schemas.LinkOut(
             id=l.id, semana=l.semana, titulo=l.titulo, url=l.url,
+            atividade_id=l.atividade_id,
             created_at=l.created_at, total_avaliacoes=total
         ))
     return resultado
@@ -146,12 +169,16 @@ def listar_links(db: Session = Depends(get_db)):
 
 @app.post("/api/links", response_model=schemas.LinkOut)
 def criar_link(dados: schemas.LinkCreate, criado_por: int, db: Session = Depends(get_db)):
-    novo = models.Link(semana=dados.semana, titulo=dados.titulo, url=dados.url, criado_por=criado_por)
+    novo = models.Link(
+        semana=dados.semana, titulo=dados.titulo, url=dados.url,
+        criado_por=criado_por, atividade_id=dados.atividade_id,
+    )
     db.add(novo)
     db.commit()
     db.refresh(novo)
     return schemas.LinkOut(
         id=novo.id, semana=novo.semana, titulo=novo.titulo, url=novo.url,
+        atividade_id=novo.atividade_id,
         created_at=novo.created_at, total_avaliacoes=0
     )
 
