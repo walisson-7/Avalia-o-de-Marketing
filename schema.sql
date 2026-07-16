@@ -22,13 +22,16 @@ CREATE TABLE atividades (
 );
 
 CREATE TABLE links (
-    id          SERIAL PRIMARY KEY,
-    semana      VARCHAR(100) NOT NULL,
-    titulo      VARCHAR(200) NOT NULL,
-    url         VARCHAR(500) NOT NULL,
-    criado_por  INTEGER NOT NULL REFERENCES usuarios(id),
-    created_at  TIMESTAMP NOT NULL DEFAULT NOW()
+    id            SERIAL PRIMARY KEY,
+    semana        VARCHAR(100) NOT NULL,
+    titulo        VARCHAR(200) NOT NULL,
+    url           VARCHAR(500) NOT NULL,
+    criado_por    INTEGER NOT NULL REFERENCES usuarios(id),
+    atividade_id  INTEGER REFERENCES atividades(id),
+    created_at    TIMESTAMP NOT NULL DEFAULT NOW()
 );
+-- Observação: em produção essa coluna é adicionada automaticamente pelo
+-- próprio main.py ao iniciar o servidor (migração segura, não apaga dados).
 
 CREATE TABLE avaliacoes (
     id            SERIAL PRIMARY KEY,
@@ -48,6 +51,7 @@ CREATE TABLE avaliacoes (
 -- ============================================
 CREATE INDEX idx_atividades_semana ON atividades(semana);
 CREATE INDEX idx_links_semana ON links(semana);
+CREATE INDEX idx_links_atividade ON links(atividade_id);
 CREATE INDEX idx_avaliacoes_avaliador ON avaliacoes(avaliador_id);
 CREATE INDEX idx_avaliacoes_link ON avaliacoes(link_id);
 
