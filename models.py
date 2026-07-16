@@ -38,7 +38,6 @@ class Link(Base):
     titulo = Column(String(200), nullable=False)
     url = Column(String(500), nullable=False)
     criado_por = Column(Integer, ForeignKey("usuarios.id"), nullable=False)
-    atividade_id = Column(Integer, ForeignKey("atividades.id"), nullable=True, index=True)
     created_at = Column(DateTime, server_default=func.now())
 
     avaliacoes = relationship("Avaliacao", back_populates="link", cascade="all, delete-orphan")
