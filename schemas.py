@@ -59,6 +59,7 @@ class LinkCreate(BaseModel):
     semana: str
     titulo: str
     url: str
+    atividade_id: Optional[int] = None
 
 
 class LinkOut(BaseModel):
@@ -66,6 +67,7 @@ class LinkOut(BaseModel):
     semana: str
     titulo: str
     url: str
+    atividade_id: Optional[int] = None
     created_at: datetime
     total_avaliacoes: int = 0
 
