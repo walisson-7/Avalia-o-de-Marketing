@@ -84,7 +84,6 @@ const MENUS = {
     ]},
     { section: 'Gestão', items: [
       { id: 'atividade', label: 'Atividade da Semana', icon: 'M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z' },
-      { id: 'links-analista', label: 'Compartilhar Links', icon: 'M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z' },
       { id: 'avaliadores', label: 'Avaliadores', icon: 'M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z' },
       { id: 'ranking-analista', label: 'Ranking', icon: 'M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z' },
     ]},
@@ -136,7 +135,6 @@ async function navigateTo(pageId) {
   // Render page
   if (pageId === 'dashboard') await renderDashboard();
   else if (pageId === 'atividade') await renderAtividades();
-  else if (pageId === 'links-analista') await renderLinksAnalista();
   else if (pageId === 'avaliadores') await renderAvaliadores();
   else if (pageId === 'ranking-analista') await renderRanking('ranking-list-analista');
   else if (pageId === 'aval-dashboard') await renderAvalDashboard();
@@ -194,7 +192,7 @@ async function renderDashboard() {
         <div class="stat-value">${pendentes.length}</div>
         <div class="stat-label">Pendentes</div>
       </div>
-      <div class="stat-card clickable-card" onclick="navigateTo('links-analista')">
+      <div class="stat-card clickable-card" onclick="navigateTo('atividade')">
         <div class="stat-icon"><svg viewBox="0 0 24 24"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg></div>
         <div class="stat-value">${links.length}</div>
         <div class="stat-label">Links compartilhados</div>
@@ -261,26 +259,99 @@ async function saveAtividade() {
 
 async function renderAtividades() {
   try {
-    const atividades = await apiGet('/api/atividades');
+    const [atividades, links] = await Promise.all([
+      apiGet('/api/atividades'),
+      apiGet('/api/links'),
+    ]);
     const el = document.getElementById('atividades-list');
     if (!atividades.length) {
       el.innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/></svg><h3>Nenhuma atividade publicada</h3><p>Crie a primeira atividade acima</p></div>';
-      return;
+    } else {
+      el.innerHTML = atividades.map(a => {
+        const linksDaAtividade = links.filter(l => l.atividade_id === a.id);
+        return `
+        <div class="card" style="margin-bottom:16px">
+          <div style="display:flex;gap:14px;align-items:flex-start">
+            <div class="task-icon"><svg viewBox="0 0 24 24"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg></div>
+            <div class="task-body" style="flex:1">
+              <div class="task-week">${a.semana}</div>
+              <div class="task-title">${a.titulo}</div>
+              ${a.descricao ? `<div class="task-desc">${a.descricao}</div>` : ''}
+              <div style="margin-top:8px;font-size:11px;color:#bbb">Publicado em ${formatDate(a.created_at)}</div>
+            </div>
+            <button class="btn btn-ghost" style="flex-shrink:0;padding:7px 12px;font-size:12px" onclick="deleteAtividade('${a.id}')">Remover</button>
+          </div>
+
+          <div class="divider" style="margin:18px 0"></div>
+
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+            <div style="font-size:13px;font-weight:700;color:var(--text)">
+              Links desta atividade ${linksDaAtividade.length ? `<span class="badge badge-gray">${linksDaAtividade.length}</span>` : ''}
+            </div>
+            <button class="btn btn-outline" style="padding:6px 12px;font-size:12px" onclick="toggleLinkForm('${a.id}')">
+              <svg viewBox="0 0 24 24" style="fill:currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+              Adicionar link
+            </button>
+          </div>
+
+          <div id="link-form-${a.id}" style="display:none;background:var(--surface2);border-radius:var(--radius-sm);padding:16px;margin-bottom:14px">
+            <div class="form-field" style="margin-bottom:10px">
+              <label>Título / descrição do link</label>
+              <input type="text" id="link-titulo-${a.id}" placeholder="Ex: Story do concorrente A — Instagram"/>
+            </div>
+            <div class="form-field" style="margin-bottom:10px">
+              <label>URL do link</label>
+              <input type="url" id="link-url-${a.id}" placeholder="https://"/>
+            </div>
+            <button class="btn btn-brand" style="padding:8px 16px;font-size:12.5px" onclick="saveLink('${a.id}')">
+              <svg viewBox="0 0 24 24" fill="white"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></svg>
+              Salvar Link
+            </button>
+          </div>
+
+          <div id="links-of-${a.id}">
+            ${linksDaAtividade.length ? linksDaAtividade.map(l => renderLinkMiniCard(l)).join('') : '<p style="font-size:13px;color:var(--text-muted);padding:4px 0">Nenhum link enviado ainda para esta atividade.</p>'}
+          </div>
+        </div>`;
+      }).join('');
     }
-    el.innerHTML = atividades.map(a => `
-      <div class="task-card">
-        <div class="task-icon"><svg viewBox="0 0 24 24"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg></div>
-        <div class="task-body" style="flex:1">
-          <div class="task-week">${a.semana}</div>
-          <div class="task-title">${a.titulo}</div>
-          ${a.descricao ? `<div class="task-desc">${a.descricao}</div>` : ''}
-          <div style="margin-top:8px;font-size:11px;color:#bbb">Publicado em ${formatDate(a.created_at)}</div>
-        </div>
-        <button class="btn btn-ghost" style="flex-shrink:0;padding:7px 12px;font-size:12px" onclick="deleteAtividade('${a.id}')">Remover</button>
-      </div>`).join('');
+
+    // Links antigos que não estão vinculados a nenhuma atividade
+    const orfaos = links.filter(l => !l.atividade_id);
+    const wrap = document.getElementById('links-orfaos-wrap');
+    if (orfaos.length) {
+      wrap.style.display = 'block';
+      document.getElementById('links-orfaos-list').innerHTML = orfaos.map(l => renderLinkMiniCard(l)).join('');
+    } else {
+      wrap.style.display = 'none';
+    }
   } catch (e) {
     toast(e.message || 'Erro ao carregar atividades', 'error');
   }
+}
+
+function renderLinkMiniCard(l) {
+  return `
+    <div class="link-card" style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+        <div class="link-title">${l.titulo}</div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span class="badge badge-orange">${l.total_avaliacoes} avaliação(ões)</span>
+          <button class="btn btn-ghost" style="padding:5px 10px;font-size:12px" onclick="deleteLink('${l.id}')">Remover</button>
+        </div>
+      </div>
+      <div class="link-url">
+        <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:var(--brand);flex-shrink:0"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg>
+        <a href="${l.url}" target="_blank">${l.url}</a>
+      </div>
+      <div style="font-size:11px;color:#bbb;margin-top:4px">Adicionado em ${formatDate(l.created_at)}</div>
+    </div>`;
+}
+
+function toggleLinkForm(atividadeId) {
+  const form = document.getElementById(`link-form-${atividadeId}`);
+  if (!form) return;
+  form.style.display = form.style.display === 'none' ? 'block' : 'none';
 }
 
 async function deleteAtividade(id) {
@@ -294,60 +365,37 @@ async function deleteAtividade(id) {
 }
 
 // ==============================
-// ANALISTA — LINKS
+// ANALISTA — LINKS (dentro de cada atividade)
 // ==============================
-async function saveLink() {
-  const semana = document.getElementById('link-semana').value.trim();
-  const titulo = document.getElementById('link-titulo').value.trim();
-  const url = document.getElementById('link-url').value.trim();
-  if (!semana || !titulo || !url) { toast('Preencha todos os campos', 'error'); return; }
+async function saveLink(atividadeId) {
+  const tituloEl = document.getElementById(`link-titulo-${atividadeId}`);
+  const urlEl = document.getElementById(`link-url-${atividadeId}`);
+  const titulo = tituloEl.value.trim();
+  const url = urlEl.value.trim();
+  if (!titulo || !url) { toast('Preencha título e URL do link', 'error'); return; }
+
+  // Usa a semana da atividade automaticamente para manter os dados organizados
+  const atividades = await apiGet('/api/atividades');
+  const atividade = atividades.find(a => a.id === Number(atividadeId));
+  const semana = atividade ? atividade.semana : '';
+
   try {
-    await apiPost(`/api/links?criado_por=${currentUser.id}`, { semana, titulo, url });
-    document.getElementById('link-semana').value = '';
-    document.getElementById('link-titulo').value = '';
-    document.getElementById('link-url').value = '';
-    toast('Link compartilhado com sucesso!', 'success');
-    renderLinksAnalista();
+    await apiPost(`/api/links?criado_por=${currentUser.id}`, {
+      semana, titulo, url, atividade_id: Number(atividadeId),
+    });
+    tituloEl.value = '';
+    urlEl.value = '';
+    toast('Link adicionado à atividade!', 'success');
+    renderAtividades();
   } catch (e) {
     toast(e.message || 'Erro ao compartilhar link', 'error');
-  }
-}
-
-async function renderLinksAnalista() {
-  try {
-    const links = await apiGet('/api/links');
-    const el = document.getElementById('links-analista-list');
-    if (!links.length) {
-      el.innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg><h3>Nenhum link compartilhado</h3><p>Adicione o primeiro link acima</p></div>';
-      return;
-    }
-    el.innerHTML = links.map(l => `
-      <div class="link-card">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
-          <div>
-            <div class="link-week">${l.semana}</div>
-            <div class="link-title">${l.titulo}</div>
-          </div>
-          <div style="display:flex;gap:8px;align-items:center">
-            <span class="badge badge-orange">${l.total_avaliacoes} avaliação(ões)</span>
-            <button class="btn btn-ghost" style="padding:5px 10px;font-size:12px" onclick="deleteLink('${l.id}')">Remover</button>
-          </div>
-        </div>
-        <div class="link-url">
-          <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:var(--brand);flex-shrink:0"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg>
-          <a href="${l.url}" target="_blank">${l.url}</a>
-        </div>
-        <div style="font-size:11px;color:#bbb;margin-top:4px">Adicionado em ${formatDate(l.created_at)}</div>
-      </div>`).join('');
-  } catch (e) {
-    toast(e.message || 'Erro ao carregar links', 'error');
   }
 }
 
 async function deleteLink(id) {
   try {
     await apiDelete(`/api/links/${id}`);
-    renderLinksAnalista();
+    renderAtividades();
     toast('Link removido', 'info');
   } catch (e) {
     toast(e.message || 'Erro ao remover link', 'error');
