@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Sistema de Avaliação — Marketing</title>
 <link rel="stylesheet" href="style.css">
 </head>
@@ -29,29 +29,27 @@
     <button class="btn-primary" onclick="doLogin()">Entrar</button>
     <div class="login-error" id="login-error"></div>
     <div class="login-hint">
-      <strong>Analista:</strong>  <code></code> BIANCA FERREIRA <code></code><br>
-      Use o usuário e senha fornecidos pela administração do sistema.
+      <strong>Analista:</strong> BIANCA FERREIRA<br>
+      Avaliadores: usuário e senha registrados pela analista
     </div>
   </div>
 </div>
 
 <!-- APP -->
 <div id="app">
-  <!-- MOBILE TOPBAR -->
+
+  <!-- TOPBAR MOBILE -->
   <div class="mobile-topbar" id="mobile-topbar">
-    <button class="hamburger-btn" id="hamburger-btn" onclick="toggleSidebar()" aria-label="Abrir menu">
-      <svg viewBox="0 0 24 24"><path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z"/></svg>
+    <button class="btn-menu" onclick="toggleSidebar()" aria-label="Menu">
+      <svg viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></svg>
     </button>
-    <div class="mobile-topbar-brand">
-      <div class="brand-dot">
-        <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/></svg>
-      </div>
-      <span>Marketing</span>
+    <div class="brand-dot">
+      <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/></svg>
     </div>
-    <div class="mobile-topbar-avatar" id="mobile-topbar-avatar">?</div>
+    <span class="brand-name">Marketing</span>
+    <div class="user-avatar" id="mobile-avatar" style="width:32px;height:32px;font-size:12px;background:var(--brand);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700">?</div>
   </div>
 
-  <!-- OVERLAY (mobile drawer backdrop) -->
   <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
 
   <!-- SIDEBAR -->
@@ -66,9 +64,6 @@
           <div class="brand-role" id="sidebar-role">—</div>
         </div>
       </div>
-      <button class="sidebar-close-btn" id="sidebar-close-btn" onclick="closeSidebar()" aria-label="Fechar menu">
-        <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
-      </button>
     </div>
     <div class="sidebar-nav" id="sidebar-nav"></div>
     <div class="sidebar-footer">
@@ -88,11 +83,6 @@
 
   <!-- MAIN -->
   <main class="main-content" id="main-content">
-
-    <button class="back-btn hidden" id="back-btn" onclick="goBack()" title="Voltar para a aba anterior">
-      <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
-      Voltar
-    </button>
 
     <!-- ===== ANALISTA PAGES ===== -->
 
@@ -121,49 +111,39 @@
       </div>
     </div>
 
-    <!-- Atividade da Semana (Analista) -->
+    <!-- Atividade da Semana — links agora ficam dentro de cada atividade -->
     <div class="page" id="page-atividade">
       <div class="page-header">
         <h2>Atividade da Semana</h2>
-        <p>Publique as tarefas que os avaliadores devem realizar</p>
+        <p>Publique atividades e adicione links diretamente nelas</p>
       </div>
-
-      <div id="atividade-list-view">
-        <div class="card">
-          <div class="card-title">
-            <div class="icon-badge"><svg viewBox="0 0 24 24"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg></div>
-            Nova Atividade
-          </div>
-          <div class="form-field">
-            <label>Semana de referência</label>
-            <input type="text" id="ativ-semana" placeholder="Ex: Semana 24 — 10 a 14 de junho"/>
-          </div>
-          <div class="form-field">
-            <label>Título da atividade</label>
-            <input type="text" id="ativ-titulo" placeholder="Ex: Análise de concorrentes — Loja XYZ"/>
-          </div>
-          <div class="form-field">
-            <label>Descrição / instruções</label>
-            <textarea id="ativ-desc" rows="4" placeholder="Descreva o que os avaliadores devem fazer nesta semana..."></textarea>
-          </div>
-          <button class="btn btn-brand" onclick="saveAtividade()">
-            <svg viewBox="0 0 24 24" fill="white"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></svg>
-            Publicar Atividade
-          </button>
+      <div class="card">
+        <div class="card-title">
+          <div class="icon-badge"><svg viewBox="0 0 24 24"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg></div>
+          Nova Atividade
         </div>
-        <div class="section-divider"><span>Atividades publicadas</span></div>
-        <div id="atividades-list"></div>
-
-        <div id="links-orfaos-wrap" style="display:none">
-          <div class="section-divider"><span>Links sem atividade vinculada</span></div>
-          <div id="links-orfaos-list"></div>
+        <div class="form-field">
+          <label>Semana de referência</label>
+          <input type="text" id="ativ-semana" placeholder="Ex: Semana 24 — 10 a 14 de junho"/>
         </div>
+        <div class="form-field">
+          <label>Título da atividade</label>
+          <input type="text" id="ativ-titulo" placeholder="Ex: Análise de concorrentes — Loja XYZ"/>
+        </div>
+        <div class="form-field">
+          <label>Descrição / instruções</label>
+          <textarea id="ativ-desc" rows="4" placeholder="Descreva o que os avaliadores devem fazer..."></textarea>
+        </div>
+        <button class="btn btn-brand" onclick="saveAtividade()">
+          <svg viewBox="0 0 24 24" fill="white"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></svg>
+          Publicar Atividade
+        </button>
       </div>
-
-      <div id="atividade-detail-view" style="display:none"></div>
+      <div class="section-divider"><span>Atividades publicadas · clique para adicionar links</span></div>
+      <div id="atividades-list"></div>
     </div>
 
-    <!-- Avaliadores (Analista) -->
+    <!-- Avaliadores -->
     <div class="page" id="page-avaliadores">
       <div class="page-header">
         <h2>Avaliadores Cadastrados</h2>
@@ -199,7 +179,7 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr><th>#</th><th>Nome</th><th>Usuário</th><th>Avaliações feitas</th><th>Ação</th></tr>
+              <tr><th>#</th><th>Nome</th><th>Usuário</th><th>Avaliações</th><th>Ação</th></tr>
             </thead>
             <tbody id="avaliadores-table-body"></tbody>
           </table>
@@ -207,7 +187,7 @@
       </div>
     </div>
 
-    <!-- Ranking (Analista) -->
+    <!-- Ranking Analista -->
     <div class="page" id="page-ranking-analista">
       <div class="page-header">
         <h2>Ranking</h2>
@@ -240,16 +220,22 @@
       </div>
     </div>
 
-    <!-- Tarefas (Avaliador) -->
+    <!-- Tarefas da Semana (avaliador) — atividades clicáveis -->
     <div class="page" id="page-aval-tarefas">
       <div class="page-header">
         <h2>Tarefas da Semana</h2>
-        <p>Atividades publicadas pela analista de marketing</p>
+        <p>Toque em uma atividade para ver os links</p>
       </div>
       <div id="aval-tarefas-list"></div>
     </div>
 
-    <!-- Links e Avaliação (Avaliador) -->
+    <!-- NOVA PÁGINA: visualização de links de uma atividade -->
+    <!-- O avaliador precisa ver todos os links antes de poder avaliar -->
+    <div class="page" id="page-aval-links-view">
+      <div id="aval-links-view-content"></div>
+    </div>
+
+    <!-- Links & Avaliação (estrutura original mantida) -->
     <div class="page" id="page-aval-links">
       <div class="page-header">
         <h2>Links para Avaliação</h2>
@@ -258,7 +244,7 @@
       <div id="aval-links-list"></div>
     </div>
 
-    <!-- Ranking (Avaliador) -->
+    <!-- Ranking Avaliador -->
     <div class="page" id="page-ranking-aval">
       <div class="page-header">
         <h2>Ranking Geral</h2>
@@ -268,7 +254,13 @@
     </div>
 
   </main>
-</div>
+
+  <!-- BOTTOM NAV MOBILE -->
+  <div class="mobile-bottom-nav" id="mobile-bottom-nav">
+    <div class="bottom-nav-items" id="bottom-nav-items"></div>
+  </div>
+
+</div><!-- /app -->
 
 <!-- MODAL ZERAR -->
 <div class="modal-overlay" id="modal-zerar">
@@ -289,5 +281,80 @@
 <div id="toast"></div>
 
 <script src="app.js"></script>
+
+<script>
+/* ============================================================
+   MOBILE — sidebar drawer + bottom nav
+============================================================ */
+const BOTTOM_NAV = {
+  analista: [
+    { id: 'dashboard',        label: 'Início',  icon: 'M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z' },
+    { id: 'atividade',        label: 'Tarefas', icon: 'M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z' },
+    { id: 'avaliadores',      label: 'Equipe',  icon: 'M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z' },
+    { id: 'ranking-analista', label: 'Ranking', icon: 'M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z' },
+  ],
+  avaliador: [
+    { id: 'aval-dashboard', label: 'Início',  icon: 'M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z' },
+    { id: 'aval-tarefas',   label: 'Tarefas', icon: 'M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z' },
+    { id: 'aval-links',     label: 'Avaliar', icon: 'M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z' },
+    { id: 'ranking-aval',   label: 'Ranking', icon: 'M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z' },
+  ]
+};
+
+function buildBottomNav(role) {
+  const items = BOTTOM_NAV[role] || [];
+  const wrap  = document.getElementById('bottom-nav-items');
+  if (!wrap) return;
+  wrap.innerHTML = items.map(item => `
+    <div class="bottom-nav-item" data-page="${item.id}" onclick="mobileNav('${item.id}')">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="${item.icon}"/></svg>
+      <span>${item.label}</span>
+    </div>`).join('');
+}
+
+function mobileNav(pageId) {
+  closeSidebar();
+  navigateTo(pageId);
+  updateBottomNav(pageId);
+}
+
+function updateBottomNav(pageId) {
+  document.querySelectorAll('.bottom-nav-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.page === pageId);
+  });
+}
+
+const _origNavigateTo = navigateTo;
+window.navigateTo = function(pageId) {
+  _origNavigateTo(pageId);
+  updateBottomNav(pageId);
+};
+
+const _origBuild = window.buildSidebar;
+window.buildSidebar = function() {
+  _origBuild();
+  if (typeof currentUser !== 'undefined' && currentUser) {
+    buildBottomNav(currentUser.role);
+    const mAvatar = document.getElementById('mobile-avatar');
+    if (mAvatar) mAvatar.textContent = currentUser.name.charAt(0).toUpperCase();
+  }
+};
+
+function toggleSidebar() {
+  const sb = document.getElementById('sidebar');
+  const ov = document.getElementById('sidebar-overlay');
+  sb.classList.contains('open') ? closeSidebar() : (sb.classList.add('open'), ov.classList.add('open'));
+}
+
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-overlay').classList.remove('open');
+}
+
+document.getElementById('sidebar-nav').addEventListener('click', function() {
+  if (window.innerWidth <= 640) closeSidebar();
+});
+</script>
+
 </body>
 </html>
