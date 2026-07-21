@@ -44,4 +44,245 @@
     </button>
     <div class="mobile-topbar-brand">
       <div class="brand-dot">
-        <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24
+        <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/></svg>
+      </div>
+      <span>Marketing</span>
+    </div>
+    <div class="mobile-topbar-avatar" id="mobile-topbar-avatar">?</div>
+  </div>
+
+  <!-- OVERLAY (mobile drawer backdrop) -->
+  <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+  <!-- SIDEBAR -->
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="brand">
+        <div class="brand-dot">
+          <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c1.93 0 3.5 1.57 3.5 3.5S13.93 13 12 13s-3.5-1.57-3.5-3.5S10.07 6 12 6zm7 13H5v-.23c0-.62.28-1.2.76-1.58C7.47 15.82 9.64 15 12 15s4.53.82 6.24 2.19c.48.38.76.97.76 1.58V19z"/></svg>
+        </div>
+        <div>
+          <div class="brand-name">Marketing</div>
+          <div class="brand-role" id="sidebar-role">—</div>
+        </div>
+      </div>
+      <button class="sidebar-close-btn" id="sidebar-close-btn" onclick="closeSidebar()" aria-label="Fechar menu">
+        <svg viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
+      </button>
+    </div>
+    <div class="sidebar-nav" id="sidebar-nav"></div>
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-avatar" id="sidebar-avatar">?</div>
+        <div>
+          <div class="user-name" id="sidebar-username">—</div>
+          <div class="user-role" id="sidebar-userrole">—</div>
+        </div>
+      </div>
+      <button class="btn-logout" onclick="doLogout()">
+        <svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:#aaa"><path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/></svg>
+        Sair
+      </button>
+    </div>
+  </nav>
+
+  <!-- MAIN -->
+  <main class="main-content" id="main-content">
+
+    <button class="back-btn hidden" id="back-btn" onclick="goBack()" title="Voltar para a aba anterior">
+      <svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+      Voltar
+    </button>
+
+    <!-- ===== ANALISTA PAGES ===== -->
+
+    <!-- Dashboard Analista -->
+    <div class="page" id="page-dashboard">
+      <div class="page-header">
+        <h2>Visão Geral</h2>
+        <p>Acompanhe o desempenho da semana em tempo real</p>
+      </div>
+      <div class="stats-grid" id="dashboard-stats"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+        <div class="card">
+          <div class="card-title">
+            <div class="icon-badge"><svg viewBox="0 0 24 24"><path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/></svg></div>
+            Responderam esta semana
+          </div>
+          <div id="responded-list"></div>
+        </div>
+        <div class="card">
+          <div class="card-title">
+            <div class="icon-badge"><svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg></div>
+            Pendentes esta semana
+          </div>
+          <div id="pending-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Atividade da Semana (Analista) -->
+    <div class="page" id="page-atividade">
+      <div class="page-header">
+        <h2>Atividade da Semana</h2>
+        <p>Publique as tarefas que os avaliadores devem realizar</p>
+      </div>
+      <div class="card">
+        <div class="card-title">
+          <div class="icon-badge"><svg viewBox="0 0 24 24"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg></div>
+          Nova Atividade
+        </div>
+        <div class="form-field">
+          <label>Semana de referência</label>
+          <input type="text" id="ativ-semana" placeholder="Ex: Semana 24 — 10 a 14 de junho"/>
+        </div>
+        <div class="form-field">
+          <label>Título da atividade</label>
+          <input type="text" id="ativ-titulo" placeholder="Ex: Análise de concorrentes — Loja XYZ"/>
+        </div>
+        <div class="form-field">
+          <label>Descrição / instruções</label>
+          <textarea id="ativ-desc" rows="4" placeholder="Descreva o que os avaliadores devem fazer nesta semana..."></textarea>
+        </div>
+        <button class="btn btn-brand" onclick="saveAtividade()">
+          <svg viewBox="0 0 24 24" fill="white"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></svg>
+          Publicar Atividade
+        </button>
+      </div>
+      <div class="section-divider"><span>Atividades publicadas</span></div>
+      <div id="atividades-list"></div>
+
+      <div id="links-orfaos-wrap" style="display:none">
+        <div class="section-divider"><span>Links sem atividade vinculada</span></div>
+        <div id="links-orfaos-list"></div>
+      </div>
+    </div>
+
+    <!-- Avaliadores (Analista) -->
+    <div class="page" id="page-avaliadores">
+      <div class="page-header">
+        <h2>Avaliadores Cadastrados</h2>
+        <p>Gerencie os avaliadores do sistema</p>
+      </div>
+      <div class="stats-grid" id="aval-stats"></div>
+      <div class="card">
+        <div class="card-title">
+          <div class="icon-badge"><svg viewBox="0 0 24 24"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V8H4v2H2v2h2v2h2v-2h2v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg></div>
+          Cadastrar Novo Avaliador
+        </div>
+        <div class="form-row">
+          <div class="form-field">
+            <label>Nome completo</label>
+            <input type="text" id="aval-nome" placeholder="Nome do avaliador"/>
+          </div>
+          <div class="form-field">
+            <label>Usuário (login)</label>
+            <input type="text" id="aval-user" placeholder="usuário sem espaços"/>
+          </div>
+        </div>
+        <div class="form-field">
+          <label>Senha</label>
+          <input type="password" id="aval-pass" placeholder="Senha de acesso"/>
+        </div>
+        <button class="btn btn-brand" onclick="saveAvaliador()">
+          <svg viewBox="0 0 24 24" fill="white"><path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V8H4v2H2v2h2v2h2v-2h2v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+          Cadastrar Avaliador
+        </button>
+      </div>
+      <div class="section-divider"><span>Lista de avaliadores</span></div>
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>#</th><th>Nome</th><th>Usuário</th><th>Avaliações feitas</th><th>Ação</th></tr>
+            </thead>
+            <tbody id="avaliadores-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ranking (Analista) -->
+    <div class="page" id="page-ranking-analista">
+      <div class="page-header">
+        <h2>Ranking</h2>
+        <p>Pontuação acumulada dos avaliadores</p>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-bottom:16px">
+        <button class="btn btn-danger" onclick="confirmZerarRanking()">
+          <svg viewBox="0 0 24 24" fill="white"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
+          Zerar Ranking
+        </button>
+      </div>
+      <div id="ranking-list-analista"></div>
+    </div>
+
+    <!-- ===== AVALIADOR PAGES ===== -->
+
+    <!-- Dashboard Avaliador -->
+    <div class="page" id="page-aval-dashboard">
+      <div class="page-header">
+        <h2 id="aval-welcome">Bem-vindo!</h2>
+        <p>Confira suas tarefas e avaliações pendentes</p>
+      </div>
+      <div class="stats-grid" id="aval-dashboard-stats"></div>
+      <div class="card">
+        <div class="card-title">
+          <div class="icon-badge"><svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"/></svg></div>
+          Atividades desta semana
+        </div>
+        <div id="aval-tasks-preview"></div>
+      </div>
+    </div>
+
+    <!-- Tarefas (Avaliador) -->
+    <div class="page" id="page-aval-tarefas">
+      <div class="page-header">
+        <h2>Tarefas da Semana</h2>
+        <p>Atividades publicadas pela analista de marketing</p>
+      </div>
+      <div id="aval-tarefas-list"></div>
+    </div>
+
+    <!-- Links e Avaliação (Avaliador) -->
+    <div class="page" id="page-aval-links">
+      <div class="page-header">
+        <h2>Links para Avaliação</h2>
+        <p>Avalie cada link compartilhado pela analista</p>
+      </div>
+      <div id="aval-links-list"></div>
+    </div>
+
+    <!-- Ranking (Avaliador) -->
+    <div class="page" id="page-ranking-aval">
+      <div class="page-header">
+        <h2>Ranking Geral</h2>
+        <p>Sua posição e pontuação entre os avaliadores</p>
+      </div>
+      <div id="ranking-list-aval"></div>
+    </div>
+
+  </main>
+</div>
+
+<!-- MODAL ZERAR -->
+<div class="modal-overlay" id="modal-zerar">
+  <div class="modal">
+    <div class="modal-title">
+      <div class="badge-icon"><svg viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg></div>
+      Zerar Ranking
+    </div>
+    <p style="font-size:14px;color:var(--text-muted);line-height:1.6">Tem certeza que deseja zerar o ranking? Todas as pontuações e avaliações serão removidas permanentemente. Esta ação não pode ser desfeita.</p>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-zerar')">Cancelar</button>
+      <button class="btn btn-danger" onclick="zerarRanking()">Sim, zerar tudo</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
