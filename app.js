@@ -128,6 +128,8 @@ function buildSidebar() {
 async function navigateTo(pageId) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const backBtn = document.getElementById('back-btn');
+  if (backBtn) backBtn.classList.add('hidden');
   const page = document.getElementById('page-' + pageId);
   if (page) page.classList.add('active');
   const navItem = document.querySelector(`.nav-item[data-page="${pageId}"]`);
@@ -246,18 +248,24 @@ async function saveAtividade() {
   const desc = document.getElementById('ativ-desc').value.trim();
   if (!semana || !titulo) { toast('Preencha semana e título', 'error'); return; }
   try {
-    await apiPost(`/api/atividades?criado_por=${currentUser.id}`, { semana, titulo, descricao: desc || null });
+    const nova = await apiPost(`/api/atividades?criado_por=${currentUser.id}`, { semana, titulo, descricao: desc || null });
     document.getElementById('ativ-semana').value = '';
     document.getElementById('ativ-titulo').value = '';
     document.getElementById('ativ-desc').value = '';
-    toast('Atividade publicada com sucesso!', 'success');
-    renderAtividades();
+    toast('Atividade publicada! Agora adicione os links dela.', 'success');
+    // Leva direto pra dentro da atividade recém-publicada, já pronta pra receber links
+    await abrirAtividade(nova.id);
   } catch (e) {
     toast(e.message || 'Erro ao publicar atividade', 'error');
   }
 }
 
+let currentAtividadeId = null;
+
 async function renderAtividades() {
+  currentAtividadeId = null;
+  document.getElementById('atividade-list-view').style.display = 'block';
+  document.getElementById('atividade-detail-view').style.display = 'none';
   try {
     const [atividades, links] = await Promise.all([
       apiGet('/api/atividades'),
@@ -268,50 +276,17 @@ async function renderAtividades() {
       el.innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/></svg><h3>Nenhuma atividade publicada</h3><p>Crie a primeira atividade acima</p></div>';
     } else {
       el.innerHTML = atividades.map(a => {
-        const linksDaAtividade = links.filter(l => l.atividade_id === a.id);
+        const totalLinks = links.filter(l => l.atividade_id === a.id).length;
         return `
-        <div class="card" style="margin-bottom:16px">
-          <div style="display:flex;gap:14px;align-items:flex-start">
-            <div class="task-icon"><svg viewBox="0 0 24 24"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg></div>
-            <div class="task-body" style="flex:1">
-              <div class="task-week">${a.semana}</div>
-              <div class="task-title">${a.titulo}</div>
-              ${a.descricao ? `<div class="task-desc">${a.descricao}</div>` : ''}
-              <div style="margin-top:8px;font-size:11px;color:#bbb">Publicado em ${formatDate(a.created_at)}</div>
-            </div>
-            <button class="btn btn-ghost" style="flex-shrink:0;padding:7px 12px;font-size:12px" onclick="deleteAtividade('${a.id}')">Remover</button>
+        <div class="task-card" style="cursor:pointer" onclick="abrirAtividade('${a.id}')">
+          <div class="task-icon"><svg viewBox="0 0 24 24"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg></div>
+          <div class="task-body" style="flex:1">
+            <div class="task-week">${a.semana}</div>
+            <div class="task-title">${a.titulo}</div>
+            ${a.descricao ? `<div class="task-desc">${a.descricao}</div>` : ''}
+            <div style="margin-top:8px;font-size:11px;color:#bbb">Publicado em ${formatDate(a.created_at)} · ${totalLinks} link(s)</div>
           </div>
-
-          <div class="divider" style="margin:18px 0"></div>
-
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-            <div style="font-size:13px;font-weight:700;color:var(--text)">
-              Links desta atividade ${linksDaAtividade.length ? `<span class="badge badge-gray">${linksDaAtividade.length}</span>` : ''}
-            </div>
-            <button class="btn btn-outline" style="padding:6px 12px;font-size:12px" onclick="toggleLinkForm('${a.id}')">
-              <svg viewBox="0 0 24 24" style="fill:currentColor"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
-              Adicionar link
-            </button>
-          </div>
-
-          <div id="link-form-${a.id}" style="display:none;background:var(--surface2);border-radius:var(--radius-sm);padding:16px;margin-bottom:14px">
-            <div class="form-field" style="margin-bottom:10px">
-              <label>Título / descrição do link</label>
-              <input type="text" id="link-titulo-${a.id}" placeholder="Ex: Story do concorrente A — Instagram"/>
-            </div>
-            <div class="form-field" style="margin-bottom:10px">
-              <label>URL do link</label>
-              <input type="url" id="link-url-${a.id}" placeholder="https://"/>
-            </div>
-            <button class="btn btn-brand" style="padding:8px 16px;font-size:12.5px" onclick="saveLink('${a.id}')">
-              <svg viewBox="0 0 24 24" fill="white"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></svg>
-              Salvar Link
-            </button>
-          </div>
-
-          <div id="links-of-${a.id}">
-            ${linksDaAtividade.length ? linksDaAtividade.map(l => renderLinkMiniCard(l)).join('') : '<p style="font-size:13px;color:var(--text-muted);padding:4px 0">Nenhum link enviado ainda para esta atividade.</p>'}
-          </div>
+          <svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:var(--text-muted);flex-shrink:0"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg>
         </div>`;
       }).join('');
     }
@@ -327,6 +302,79 @@ async function renderAtividades() {
     }
   } catch (e) {
     toast(e.message || 'Erro ao carregar atividades', 'error');
+  }
+}
+
+async function abrirAtividade(atividadeId) {
+  currentAtividadeId = Number(atividadeId);
+  document.getElementById('atividade-list-view').style.display = 'none';
+  document.getElementById('atividade-detail-view').style.display = 'block';
+  const backBtn = document.getElementById('back-btn');
+  if (backBtn) backBtn.classList.remove('hidden');
+  await renderAtividadeDetail();
+}
+
+function goBack() {
+  const backBtn = document.getElementById('back-btn');
+  if (backBtn) backBtn.classList.add('hidden');
+  renderAtividades();
+}
+
+async function renderAtividadeDetail() {
+  const detailEl = document.getElementById('atividade-detail-view');
+  try {
+    const [atividades, links] = await Promise.all([
+      apiGet('/api/atividades'),
+      apiGet('/api/links'),
+    ]);
+    const a = atividades.find(x => x.id === currentAtividadeId);
+    if (!a) {
+      toast('Atividade não encontrada', 'error');
+      goBack();
+      return;
+    }
+    const linksDaAtividade = links.filter(l => l.atividade_id === a.id);
+
+    detailEl.innerHTML = `
+      <div class="card">
+        <div class="card-title" style="justify-content:space-between">
+          <div style="display:flex;align-items:center;gap:8px">
+            <div class="icon-badge"><svg viewBox="0 0 24 24"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg></div>
+            ${a.semana}
+          </div>
+          <button class="btn btn-ghost" style="padding:6px 12px;font-size:12px" onclick="deleteAtividade('${a.id}')">Remover atividade</button>
+        </div>
+        <div class="task-title" style="font-size:18px">${a.titulo}</div>
+        ${a.descricao ? `<div class="task-desc" style="margin-top:6px">${a.descricao}</div>` : ''}
+        <div style="margin-top:10px;font-size:11px;color:#bbb">Publicado em ${formatDate(a.created_at)}</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <div class="icon-badge"><svg viewBox="0 0 24 24"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg></div>
+          Adicionar link a esta atividade
+        </div>
+        <div class="form-field">
+          <label>Título / descrição do link</label>
+          <input type="text" id="link-titulo-detail" placeholder="Ex: Story do concorrente A — Instagram"/>
+        </div>
+        <div class="form-field">
+          <label>URL do link</label>
+          <input type="url" id="link-url-detail" placeholder="https://"/>
+        </div>
+        <button class="btn btn-brand" onclick="saveLinkDetail()">
+          <svg viewBox="0 0 24 24" fill="white"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></svg>
+          Salvar Link
+        </button>
+      </div>
+
+      <div class="section-divider"><span>Links desta atividade ${linksDaAtividade.length ? `(${linksDaAtividade.length})` : ''}</span></div>
+      <div id="links-of-detail">
+        ${linksDaAtividade.length ? linksDaAtividade.map(l => renderLinkMiniCard(l)).join('') : '<p style="font-size:13px;color:var(--text-muted);padding:4px 0">Nenhum link enviado ainda para esta atividade.</p>'}
+      </div>
+    `;
+  } catch (e) {
+    toast(e.message || 'Erro ao carregar a atividade', 'error');
   }
 }
 
@@ -348,45 +396,39 @@ function renderLinkMiniCard(l) {
     </div>`;
 }
 
-function toggleLinkForm(atividadeId) {
-  const form = document.getElementById(`link-form-${atividadeId}`);
-  if (!form) return;
-  form.style.display = form.style.display === 'none' ? 'block' : 'none';
-}
-
 async function deleteAtividade(id) {
   try {
     await apiDelete(`/api/atividades/${id}`);
-    renderAtividades();
     toast('Atividade removida', 'info');
+    goBack();
   } catch (e) {
     toast(e.message || 'Erro ao remover atividade', 'error');
   }
 }
 
 // ==============================
-// ANALISTA — LINKS (dentro de cada atividade)
+// ANALISTA — LINKS (dentro da atividade aberta)
 // ==============================
-async function saveLink(atividadeId) {
-  const tituloEl = document.getElementById(`link-titulo-${atividadeId}`);
-  const urlEl = document.getElementById(`link-url-${atividadeId}`);
+async function saveLinkDetail() {
+  if (!currentAtividadeId) return;
+  const tituloEl = document.getElementById('link-titulo-detail');
+  const urlEl = document.getElementById('link-url-detail');
   const titulo = tituloEl.value.trim();
   const url = urlEl.value.trim();
   if (!titulo || !url) { toast('Preencha título e URL do link', 'error'); return; }
 
-  // Usa a semana da atividade automaticamente para manter os dados organizados
-  const atividades = await apiGet('/api/atividades');
-  const atividade = atividades.find(a => a.id === Number(atividadeId));
-  const semana = atividade ? atividade.semana : '';
-
   try {
+    const atividades = await apiGet('/api/atividades');
+    const atividade = atividades.find(a => a.id === currentAtividadeId);
+    const semana = atividade ? atividade.semana : '';
+
     await apiPost(`/api/links?criado_por=${currentUser.id}`, {
-      semana, titulo, url, atividade_id: Number(atividadeId),
+      semana, titulo, url, atividade_id: currentAtividadeId,
     });
     tituloEl.value = '';
     urlEl.value = '';
     toast('Link adicionado à atividade!', 'success');
-    renderAtividades();
+    renderAtividadeDetail();
   } catch (e) {
     toast(e.message || 'Erro ao compartilhar link', 'error');
   }
@@ -395,8 +437,9 @@ async function saveLink(atividadeId) {
 async function deleteLink(id) {
   try {
     await apiDelete(`/api/links/${id}`);
-    renderAtividades();
     toast('Link removido', 'info');
+    if (currentAtividadeId) renderAtividadeDetail();
+    else renderAtividades();
   } catch (e) {
     toast(e.message || 'Erro ao remover link', 'error');
   }
