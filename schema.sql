@@ -2,7 +2,6 @@
 -- Schema do banco de dados - Sistema de Avaliação
 -- PostgreSQL
 -- ============================================
-
 CREATE TABLE usuarios (
     id            SERIAL PRIMARY KEY,
     nome          VARCHAR(150) NOT NULL,
@@ -22,12 +21,13 @@ CREATE TABLE atividades (
 );
 
 CREATE TABLE links (
-    id          SERIAL PRIMARY KEY,
-    semana      VARCHAR(100) NOT NULL,
-    titulo      VARCHAR(200) NOT NULL,
-    url         VARCHAR(500) NOT NULL,
-    criado_por  INTEGER NOT NULL REFERENCES usuarios(id),
-    created_at  TIMESTAMP NOT NULL DEFAULT NOW()
+    id            SERIAL PRIMARY KEY,
+    semana        VARCHAR(100) NOT NULL,
+    titulo        VARCHAR(200) NOT NULL,
+    url           VARCHAR(500) NOT NULL,
+    criado_por    INTEGER NOT NULL REFERENCES usuarios(id),
+    atividade_id  INTEGER REFERENCES atividades(id),  -- vínculo do link com a atividade da semana
+    created_at    TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE avaliacoes (
@@ -48,6 +48,7 @@ CREATE TABLE avaliacoes (
 -- ============================================
 CREATE INDEX idx_atividades_semana ON atividades(semana);
 CREATE INDEX idx_links_semana ON links(semana);
+CREATE INDEX idx_links_atividade ON links(atividade_id);
 CREATE INDEX idx_avaliacoes_avaliador ON avaliacoes(avaliador_id);
 CREATE INDEX idx_avaliacoes_link ON avaliacoes(link_id);
 
@@ -66,3 +67,10 @@ CREATE INDEX idx_avaliacoes_link ON avaliacoes(link_id);
 -- Zerar ranking = apagar todas as avaliações
 -- ============================================
 -- DELETE FROM avaliacoes;
+
+-- ============================================
+-- MIGRAÇÃO (rodar uma única vez em bancos já existentes,
+-- que foram criados antes da coluna atividade_id existir)
+-- ============================================
+-- ALTER TABLE links ADD COLUMN atividade_id INTEGER REFERENCES atividades(id);
+-- CREATE INDEX idx_links_atividade ON links(atividade_id);
