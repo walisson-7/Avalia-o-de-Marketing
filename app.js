@@ -254,7 +254,11 @@ async function saveAtividade() {
     document.getElementById('ativ-desc').value = '';
     toast('Atividade publicada! Agora adicione os links dela.', 'success');
     // Leva direto pra dentro da atividade recém-publicada, já pronta pra receber links
-    await abrirAtividade(nova.id);
+    try {
+      await abrirAtividade(nova.id);
+    } catch (navErr) {
+      renderAtividades();
+    }
   } catch (e) {
     toast(e.message || 'Erro ao publicar atividade', 'error');
   }
@@ -264,8 +268,14 @@ let currentAtividadeId = null;
 
 async function renderAtividades() {
   currentAtividadeId = null;
-  document.getElementById('atividade-list-view').style.display = 'block';
-  document.getElementById('atividade-detail-view').style.display = 'none';
+  const listView = document.getElementById('atividade-list-view');
+  const detailView = document.getElementById('atividade-detail-view');
+  if (!listView || !detailView) {
+    toast('O index.html está desatualizado — atualize esse arquivo junto com o app.js', 'error');
+    return;
+  }
+  listView.style.display = 'block';
+  detailView.style.display = 'none';
   try {
     const [atividades, links] = await Promise.all([
       apiGet('/api/atividades'),
@@ -307,8 +317,14 @@ async function renderAtividades() {
 
 async function abrirAtividade(atividadeId) {
   currentAtividadeId = Number(atividadeId);
-  document.getElementById('atividade-list-view').style.display = 'none';
-  document.getElementById('atividade-detail-view').style.display = 'block';
+  const listView = document.getElementById('atividade-list-view');
+  const detailView = document.getElementById('atividade-detail-view');
+  if (!listView || !detailView) {
+    toast('O index.html está desatualizado — atualize esse arquivo junto com o app.js', 'error');
+    return;
+  }
+  listView.style.display = 'none';
+  detailView.style.display = 'block';
   const backBtn = document.getElementById('back-btn');
   if (backBtn) backBtn.classList.remove('hidden');
   await renderAtividadeDetail();
