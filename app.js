@@ -46,6 +46,13 @@ function formatDate(iso) {
 // ==============================
 let currentUser = null;
 
+// Estado da nova navegação em fluxo (atividade -> links -> avaliação)
+let currentAtividadeDetail = null; // usado pela ANALISTA no painel de detalhes da atividade
+let currentAvalAtividade = null;   // usado pelo AVALIADOR na visualização de links / avaliação
+window._atividadesCache = [];      // cache de atividades (lado analista)
+window._avalAtividadesCache = [];  // cache de atividades (lado avaliador)
+window._avlvLinks = [];            // links da atividade sendo visualizada pelo avaliador
+
 async function doLogin() {
   const user = document.getElementById('login-user').value.trim();
   const pass = document.getElementById('login-pass').value.trim();
@@ -68,6 +75,8 @@ async function doLogin() {
 
 function doLogout() {
   currentUser = null;
+  currentAtividadeDetail = null;
+  currentAvalAtividade = null;
   document.getElementById('login-screen').style.display = 'flex';
   document.getElementById('app').style.display = 'none';
   document.getElementById('login-user').value = '';
@@ -84,7 +93,6 @@ const MENUS = {
     ]},
     { section: 'Gestão', items: [
       { id: 'atividade', label: 'Atividade da Semana', icon: 'M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z' },
-      { id: 'links-analista', label: 'Compartilhar Links', icon: 'M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z' },
       { id: 'avaliadores', label: 'Avaliadores', icon: 'M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z' },
       { id: 'ranking-analista', label: 'Ranking', icon: 'M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z' },
     ]},
@@ -95,7 +103,6 @@ const MENUS = {
     ]},
     { section: 'Avaliação', items: [
       { id: 'aval-tarefas', label: 'Tarefas da Semana', icon: 'M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z' },
-      { id: 'aval-links', label: 'Links & Avaliação', icon: 'M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z' },
       { id: 'ranking-aval', label: 'Ranking', icon: 'M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z' },
     ]},
   ]
@@ -136,11 +143,11 @@ async function navigateTo(pageId) {
   // Render page
   if (pageId === 'dashboard') await renderDashboard();
   else if (pageId === 'atividade') await renderAtividades();
-  else if (pageId === 'links-analista') await renderLinksAnalista();
   else if (pageId === 'avaliadores') await renderAvaliadores();
   else if (pageId === 'ranking-analista') await renderRanking('ranking-list-analista');
   else if (pageId === 'aval-dashboard') await renderAvalDashboard();
-  else if (pageId === 'aval-tarefas') await renderAvalTarefas();
+  else if (pageId === 'aval-tarefas') { currentAvalAtividade = null; await renderAvalTarefas(); }
+  else if (pageId === 'aval-links-view') await renderAvalLinksView();
   else if (pageId === 'aval-links') await renderAvalLinks();
   else if (pageId === 'ranking-aval') await renderRanking('ranking-list-aval');
 }
@@ -194,7 +201,7 @@ async function renderDashboard() {
         <div class="stat-value">${pendentes.length}</div>
         <div class="stat-label">Pendentes</div>
       </div>
-      <div class="stat-card clickable-card" onclick="navigateTo('links-analista')">
+      <div class="stat-card clickable-card" onclick="navigateTo('atividade')">
         <div class="stat-icon"><svg viewBox="0 0 24 24"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg></div>
         <div class="stat-value">${links.length}</div>
         <div class="stat-label">Links compartilhados</div>
@@ -262,21 +269,22 @@ async function saveAtividade() {
 async function renderAtividades() {
   try {
     const atividades = await apiGet('/api/atividades');
+    window._atividadesCache = atividades;
     const el = document.getElementById('atividades-list');
     if (!atividades.length) {
       el.innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/></svg><h3>Nenhuma atividade publicada</h3><p>Crie a primeira atividade acima</p></div>';
       return;
     }
     el.innerHTML = atividades.map(a => `
-      <div class="task-card">
+      <div class="task-card" style="cursor:pointer" onclick="openAtividadeDetail('${a.id}')" title="Clique para gerenciar os links desta atividade">
         <div class="task-icon"><svg viewBox="0 0 24 24"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 0c.55 0 1 .45 1 1s-.45 1-1 1-1-.45-1-1 .45-1 1-1zm2 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg></div>
         <div class="task-body" style="flex:1">
           <div class="task-week">${a.semana}</div>
           <div class="task-title">${a.titulo}</div>
           ${a.descricao ? `<div class="task-desc">${a.descricao}</div>` : ''}
-          <div style="margin-top:8px;font-size:11px;color:#bbb">Publicado em ${formatDate(a.created_at)}</div>
+          <div style="margin-top:8px;font-size:11px;color:#bbb">Publicado em ${formatDate(a.created_at)} · clique para ver/adicionar links</div>
         </div>
-        <button class="btn btn-ghost" style="flex-shrink:0;padding:7px 12px;font-size:12px" onclick="deleteAtividade('${a.id}')">Remover</button>
+        <button class="btn btn-ghost" style="flex-shrink:0;padding:7px 12px;font-size:12px" onclick="event.stopPropagation(); deleteAtividade('${a.id}')">Remover</button>
       </div>`).join('');
   } catch (e) {
     toast(e.message || 'Erro ao carregar atividades', 'error');
@@ -294,61 +302,68 @@ async function deleteAtividade(id) {
 }
 
 // ==============================
-// ANALISTA — LINKS
+// ANALISTA — PAINEL DE LINKS DENTRO DA ATIVIDADE
 // ==============================
-async function saveLink() {
-  const semana = document.getElementById('link-semana').value.trim();
-  const titulo = document.getElementById('link-titulo').value.trim();
-  const url = document.getElementById('link-url').value.trim();
-  if (!semana || !titulo || !url) { toast('Preencha todos os campos', 'error'); return; }
-  try {
-    await apiPost(`/api/links?criado_por=${currentUser.id}`, { semana, titulo, url });
-    document.getElementById('link-semana').value = '';
-    document.getElementById('link-titulo').value = '';
-    document.getElementById('link-url').value = '';
-    toast('Link compartilhado com sucesso!', 'success');
-    renderLinksAnalista();
-  } catch (e) {
-    toast(e.message || 'Erro ao compartilhar link', 'error');
-  }
+async function openAtividadeDetail(id) {
+  const a = (window._atividadesCache || []).find(x => String(x.id) === String(id));
+  if (!a) { toast('Atividade não encontrada', 'error'); return; }
+  currentAtividadeDetail = a;
+  document.getElementById('atd-titulo').textContent = a.titulo;
+  document.getElementById('atd-semana').textContent = a.semana;
+  document.getElementById('atd-link-titulo').value = '';
+  document.getElementById('atd-link-url').value = '';
+  openModal('modal-atividade-detail');
+  await renderLinksDoAtividadeModal();
 }
 
-async function renderLinksAnalista() {
+async function renderLinksDoAtividadeModal() {
+  if (!currentAtividadeDetail) return;
+  const el = document.getElementById('atd-links-list');
+  el.innerHTML = '<div style="font-size:13px;color:var(--text-muted);padding:8px 0">Carregando...</div>';
   try {
     const links = await apiGet('/api/links');
-    const el = document.getElementById('links-analista-list');
-    if (!links.length) {
-      el.innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg><h3>Nenhum link compartilhado</h3><p>Adicione o primeiro link acima</p></div>';
+    const filtered = links.filter(l => l.semana === currentAtividadeDetail.semana);
+    if (!filtered.length) {
+      el.innerHTML = '<div style="font-size:13px;color:var(--text-muted);padding:12px 0">Nenhum link adicionado ainda nesta atividade.</div>';
       return;
     }
-    el.innerHTML = links.map(l => `
-      <div class="link-card">
-        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px">
-          <div>
-            <div class="link-week">${l.semana}</div>
-            <div class="link-title">${l.titulo}</div>
+    el.innerHTML = filtered.map(l => `
+      <div class="link-card" style="margin-bottom:10px;padding:12px 14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+          <div style="min-width:0">
+            <div style="font-size:13px;font-weight:700">${l.titulo}</div>
+            <a href="${l.url}" target="_blank" style="font-size:12px;color:var(--text-muted);word-break:break-all">${l.url}</a>
           </div>
-          <div style="display:flex;gap:8px;align-items:center">
-            <span class="badge badge-orange">${l.total_avaliacoes} avaliação(ões)</span>
-            <button class="btn btn-ghost" style="padding:5px 10px;font-size:12px" onclick="deleteLink('${l.id}')">Remover</button>
-          </div>
+          <button class="btn btn-ghost" style="flex-shrink:0;padding:5px 10px;font-size:12px" onclick="deleteLinkDoAtividadeModal('${l.id}')">Remover</button>
         </div>
-        <div class="link-url">
-          <svg viewBox="0 0 24 24" style="width:16px;height:16px;fill:var(--brand);flex-shrink:0"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg>
-          <a href="${l.url}" target="_blank">${l.url}</a>
-        </div>
-        <div style="font-size:11px;color:#bbb;margin-top:4px">Adicionado em ${formatDate(l.created_at)}</div>
       </div>`).join('');
   } catch (e) {
-    toast(e.message || 'Erro ao carregar links', 'error');
+    toast(e.message || 'Erro ao carregar links da atividade', 'error');
   }
 }
 
-async function deleteLink(id) {
+async function saveLinkParaAtividade() {
+  if (!currentAtividadeDetail) return;
+  const titulo = document.getElementById('atd-link-titulo').value.trim();
+  const url = document.getElementById('atd-link-url').value.trim();
+  if (!titulo || !url) { toast('Preencha título e URL do link', 'error'); return; }
+  try {
+    // semana é herdada automaticamente da atividade (não aparece campo para o usuário)
+    await apiPost(`/api/links?criado_por=${currentUser.id}`, { semana: currentAtividadeDetail.semana, titulo, url });
+    document.getElementById('atd-link-titulo').value = '';
+    document.getElementById('atd-link-url').value = '';
+    toast('Link adicionado à atividade!', 'success');
+    renderLinksDoAtividadeModal();
+  } catch (e) {
+    toast(e.message || 'Erro ao adicionar link', 'error');
+  }
+}
+
+async function deleteLinkDoAtividadeModal(id) {
   try {
     await apiDelete(`/api/links/${id}`);
-    renderLinksAnalista();
     toast('Link removido', 'info');
+    renderLinksDoAtividadeModal();
   } catch (e) {
     toast(e.message || 'Erro ao remover link', 'error');
   }
@@ -508,12 +523,12 @@ async function renderAvalDashboard() {
         <div class="stat-value">${myScore}</div>
         <div class="stat-label">Minha pontuação</div>
       </div>
-      <div class="stat-card clickable-card" onclick="navigateTo('aval-links')">
+      <div class="stat-card clickable-card" onclick="navigateTo('aval-tarefas')">
         <div class="stat-icon"><svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg></div>
         <div class="stat-value">${avals.length}</div>
         <div class="stat-label">Avaliações feitas</div>
       </div>
-      <div class="stat-card clickable-card" onclick="navigateTo('aval-links')">
+      <div class="stat-card clickable-card" onclick="navigateTo('aval-tarefas')">
         <div class="stat-icon"><svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zm4.01 14H8v-2h8v2zm0-4H8v-2h8v2zm0-4H8V6h8v2z"/></svg></div>
         <div class="stat-value">${pendentes.length}</div>
         <div class="stat-label">Links para avaliar</div>
@@ -527,7 +542,7 @@ async function renderAvalDashboard() {
       return;
     }
     el.innerHTML = primeiras.map(a => `
-      <div class="task-card">
+      <div class="task-card" style="cursor:pointer" onclick="navigateTo('aval-tarefas')">
         <div class="task-icon"><svg viewBox="0 0 24 24"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/></svg></div>
         <div class="task-body">
           <div class="task-week">${a.semana}</div>
@@ -541,24 +556,25 @@ async function renderAvalDashboard() {
 }
 
 // ==============================
-// AVALIADOR — TAREFAS
+// AVALIADOR — TAREFAS (cards clicáveis)
 // ==============================
 async function renderAvalTarefas() {
   try {
     const atividades = await apiGet('/api/atividades');
+    window._avalAtividadesCache = atividades;
     const el = document.getElementById('aval-tarefas-list');
     if (!atividades.length) {
       el.innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/></svg><h3>Nenhuma atividade ainda</h3><p>A analista ainda não publicou atividades</p></div>';
       return;
     }
     el.innerHTML = atividades.map(a => `
-      <div class="task-card" style="background:#fff;border:1.5px solid var(--border);border-radius:var(--radius);padding:20px 22px">
+      <div class="task-card" style="background:#fff;border:1.5px solid var(--border);border-radius:var(--radius);padding:20px 22px;cursor:pointer" onclick="openAvalAtividadeLinksView('${a.id}')" title="Clique para ver os links desta atividade">
         <div class="task-icon"><svg viewBox="0 0 24 24"><path d="M19 3h-4.18C14.4 1.84 13.3 1 12 1c-1.3 0-2.4.84-2.82 2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/></svg></div>
         <div class="task-body" style="flex:1">
           <div class="task-week">${a.semana}</div>
           <div class="task-title">${a.titulo}</div>
           ${a.descricao ? `<div class="task-desc">${a.descricao}</div>` : ''}
-          <div style="margin-top:8px;font-size:11px;color:#bbb">Publicado em ${formatDate(a.created_at)}</div>
+          <div style="margin-top:8px;font-size:11px;color:#bbb">Publicado em ${formatDate(a.created_at)} · clique para ver os links</div>
         </div>
       </div>`).join('');
   } catch (e) {
@@ -567,14 +583,110 @@ async function renderAvalTarefas() {
 }
 
 // ==============================
-// AVALIADOR — LINKS & AVALIAÇÃO
+// AVALIADOR — VISUALIZAÇÃO DE LINKS DA ATIVIDADE
+// ==============================
+async function openAvalAtividadeLinksView(id) {
+  const a = (window._avalAtividadesCache || []).find(x => String(x.id) === String(id));
+  if (!a) { toast('Atividade não encontrada', 'error'); return; }
+  currentAvalAtividade = a;
+  await navigateTo('aval-links-view');
+}
+
+function isLinkVisto(linkId) {
+  if (!currentUser) return false;
+  return localStorage.getItem(`visto_${currentUser.id}_${linkId}`) === '1';
+}
+
+function marcarLinkVisto(linkId) {
+  if (!currentUser) return;
+  localStorage.setItem(`visto_${currentUser.id}_${linkId}`, '1');
+}
+
+function abrirLinkEMarcarVisto(linkId) {
+  const link = (window._avlvLinks || []).find(l => String(l.id) === String(linkId));
+  if (link) window.open(link.url, '_blank', 'noopener');
+  marcarLinkVisto(linkId);
+  renderAvalLinksView();
+}
+
+async function renderAvalLinksView() {
+  if (!currentAvalAtividade) { navigateTo('aval-tarefas'); return; }
+  const a = currentAvalAtividade;
+  document.getElementById('avlv-titulo').textContent = a.titulo;
+  document.getElementById('avlv-semana').textContent = a.semana + (a.descricao ? ' · ' + a.descricao : '');
+  try {
+    const links = await apiGet('/api/links');
+    const filtered = links.filter(l => l.semana === a.semana);
+    window._avlvLinks = filtered;
+    const vistos = filtered.filter(l => isLinkVisto(l.id));
+    const pct = filtered.length ? Math.round(vistos.length / filtered.length * 100) : 0;
+
+    document.getElementById('avlv-progress-fill').style.width = pct + '%';
+    document.getElementById('avlv-progress-text').textContent = filtered.length
+      ? `${vistos.length} de ${filtered.length} links vistos`
+      : 'Nenhum link nesta atividade ainda';
+
+    const el = document.getElementById('avlv-links-list');
+    if (!filtered.length) {
+      el.innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg><h3>Nenhum link nesta atividade</h3><p>Aguarde a analista adicionar links</p></div>';
+    } else {
+      el.innerHTML = filtered.map(l => {
+        const visto = isLinkVisto(l.id);
+        return `
+        <div class="link-card" style="margin-bottom:16px">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+            <div class="link-title">${l.titulo}</div>
+            ${visto ? '<span class="badge badge-green">Visto ✓</span>' : '<span class="badge badge-gray">Não visto</span>'}
+          </div>
+          <button class="btn ${visto ? 'btn-ghost' : 'btn-brand'}" style="margin-top:10px" onclick="abrirLinkEMarcarVisto('${l.id}')">
+            <svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:${visto ? 'var(--brand)' : 'white'}"><path d="M14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7zM5 5v14h14v-7h-2v5H7V7h5V5H5z"/></svg>
+            ${visto ? 'Abrir novamente' : 'Abrir link'}
+          </button>
+        </div>`;
+      }).join('');
+    }
+
+    const btn = document.getElementById('avlv-btn-avaliar');
+    btn.style.display = (filtered.length > 0 && vistos.length === filtered.length) ? 'inline-flex' : 'none';
+  } catch (e) {
+    toast(e.message || 'Erro ao carregar links', 'error');
+  }
+}
+
+function goToAvaliacao() {
+  navigateTo('aval-links');
+}
+
+// ==============================
+// AVALIADOR — PÁGINA DE AVALIAÇÃO
 // ==============================
 async function renderAvalLinks() {
+  // Cabeçalho de contexto + botão voltar
+  const ctxEl = document.getElementById('aval-links-context');
+  if (ctxEl) {
+    if (currentAvalAtividade) {
+      ctxEl.innerHTML = `
+        <button class="btn btn-ghost" style="margin-bottom:14px" onclick="navigateTo('aval-links-view')">← Voltar para os links</button>
+        <div style="font-size:12px;font-weight:700;color:var(--brand);text-transform:uppercase;letter-spacing:0.5px">${currentAvalAtividade.semana}</div>
+        <h2 style="margin:2px 0 4px">${currentAvalAtividade.titulo}</h2>
+        <p>Avalie cada link visualizado nos critérios abaixo</p>`;
+    } else {
+      ctxEl.innerHTML = `
+        <button class="btn btn-ghost" style="margin-bottom:14px" onclick="navigateTo('aval-tarefas')">← Voltar para Tarefas</button>
+        <h2>Links para Avaliação</h2>
+        <p>Avalie cada link compartilhado pela analista</p>`;
+    }
+  }
+
   try {
-    const [links, myAvals] = await Promise.all([
+    const [allLinks, myAvals] = await Promise.all([
       apiGet('/api/links'),
       apiGet(`/api/avaliacoes?avaliador_id=${currentUser.id}`),
     ]);
+    const links = currentAvalAtividade
+      ? allLinks.filter(l => l.semana === currentAvalAtividade.semana)
+      : allLinks;
+
     const el = document.getElementById('aval-links-list');
     if (!links.length) {
       el.innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg><h3>Nenhum link disponível</h3><p>Aguarde a analista compartilhar links</p></div>';
@@ -587,11 +699,17 @@ async function renderAvalLinks() {
 
       let evalSection = '';
       if (alreadyEval) {
+        const obsParts = [];
+        if (myEval.precificacao <= 3 && myEval.obs_precificacao) obsParts.push(`Precificação: "${myEval.obs_precificacao}"`);
+        if (myEval.organizacao <= 3 && myEval.obs_organizacao) obsParts.push(`Organização: "${myEval.obs_organizacao}"`);
+        if (myEval.execucao <= 3 && myEval.obs_execucao) obsParts.push(`Execução: "${myEval.obs_execucao}"`);
+        if (myEval.criatividade <= 3 && myEval.obs_criatividade) obsParts.push(`Criatividade: "${myEval.obs_criatividade}"`);
         evalSection = `
           <div class="avaliacao-already">
             <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
             Você já avaliou este link! Pontuação: <strong>${myEval.total} pts</strong>
             (Precificação: ${myEval.precificacao}, Organização: ${myEval.organizacao}, Execução: ${myEval.execucao}, Criatividade: ${myEval.criatividade})
+            ${obsParts.length ? `<div style="margin-top:6px;font-size:12px;opacity:0.85">Observações: ${obsParts.join(' · ')}</div>` : ''}
           </div>`;
       } else {
         evalSection = `
@@ -603,6 +721,7 @@ async function renderAvalLinks() {
                 ${[1,2,3,4,5].map(n => `<div class="star" onclick="setStar('${l.id}','${crit}',${n})" data-val="${n}">${n}</div>`).join('')}
               </div>
               <div class="criteria-score">0 a 5 pontos (+${5} máx)</div>
+              <textarea id="obs-${l.id}-${crit}" placeholder="Nota baixa: explique o motivo..." style="display:none;margin-top:8px;width:100%;box-sizing:border-box;font-size:12px;font-family:inherit;padding:8px 10px;border-radius:8px;border:1.5px solid var(--border);resize:vertical;min-height:56px"></textarea>
             </div>`).join('')}
           </div>
           <div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px">
@@ -652,10 +771,16 @@ function setStar(linkId, crit, val) {
   if (!window._stars[linkId]) window._stars[linkId] = {};
   window._stars[linkId][crit] = val;
   const container = document.getElementById(`stars-${linkId}-${crit}`);
-  if (!container) return;
-  container.querySelectorAll('.star').forEach(s => {
-    s.classList.toggle('active', parseInt(s.dataset.val) <= val);
-  });
+  if (container) {
+    container.querySelectorAll('.star').forEach(s => {
+      s.classList.toggle('active', parseInt(s.dataset.val) <= val);
+    });
+  }
+  // Nota baixa (<=3): mostra campo de observação para justificar
+  const obsField = document.getElementById(`obs-${linkId}-${crit}`);
+  if (obsField) {
+    obsField.style.display = val <= 3 ? 'block' : 'none';
+  }
 }
 
 async function submitAvaliacao(linkId) {
@@ -666,6 +791,12 @@ async function submitAvaliacao(linkId) {
   const criat = s.criatividade || 0;
   if (!prec && !org && !exec_ && !criat) { toast('Avalie pelo menos um critério', 'error'); return; }
 
+  const getObs = (crit, val) => {
+    if (val > 3) return '';
+    const field = document.getElementById(`obs-${linkId}-${crit}`);
+    return field ? field.value.trim() : '';
+  };
+
   try {
     const nova = await apiPost('/api/avaliacoes', {
       link_id: Number(linkId),
@@ -674,6 +805,10 @@ async function submitAvaliacao(linkId) {
       organizacao: org,
       execucao: exec_,
       criatividade: criat,
+      obs_precificacao: getObs('precificacao', prec),
+      obs_organizacao: getObs('organizacao', org),
+      obs_execucao: getObs('execucao', exec_),
+      obs_criatividade: getObs('criatividade', criat),
     });
     delete window._stars[linkId];
     toast(`Avaliação enviada! +${nova.total} pontos`, 'success');
@@ -699,6 +834,10 @@ async function submitAvaliacao(linkId) {
     }
     .stat-card.clickable-card:active {
       transform: translateY(0);
+    }
+    .task-card[onclick]:hover {
+      box-shadow: 0 4px 14px rgba(0,0,0,0.07);
+      transform: translateY(-1px);
     }
   `;
   document.head.appendChild(style);
