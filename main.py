@@ -132,35 +132,27 @@ def remover_atividade(atividade_id: int, db: Session = Depends(get_db)):
 # LINKS
 # ==============================
 @app.get("/api/links", response_model=list[schemas.LinkOut])
-def listar_links(atividade_id: int | None = None, db: Session = Depends(get_db)):
-    query = db.query(models.Link)
-    if atividade_id is not None:
-        query = query.filter(models.Link.atividade_id == atividade_id)
-    links = query.order_by(models.Link.created_at.desc()).all()
+def listar_links(db: Session = Depends(get_db)):
+    links = db.query(models.Link).order_by(models.Link.created_at.desc()).all()
     resultado = []
     for l in links:
         total = db.query(models.Avaliacao).filter(models.Avaliacao.link_id == l.id).count()
         resultado.append(schemas.LinkOut(
             id=l.id, semana=l.semana, titulo=l.titulo, url=l.url,
-            created_at=l.created_at, total_avaliacoes=total,
-            atividade_id=l.atividade_id,
+            created_at=l.created_at, total_avaliacoes=total
         ))
     return resultado
 
 
 @app.post("/api/links", response_model=schemas.LinkOut)
 def criar_link(dados: schemas.LinkCreate, criado_por: int, db: Session = Depends(get_db)):
-    novo = models.Link(
-        semana=dados.semana, titulo=dados.titulo, url=dados.url,
-        criado_por=criado_por, atividade_id=dados.atividade_id,
-    )
+    novo = models.Link(semana=dados.semana, titulo=dados.titulo, url=dados.url, criado_por=criado_por)
     db.add(novo)
     db.commit()
     db.refresh(novo)
     return schemas.LinkOut(
         id=novo.id, semana=novo.semana, titulo=novo.titulo, url=novo.url,
-        created_at=novo.created_at, total_avaliacoes=0,
-        atividade_id=novo.atividade_id,
+        created_at=novo.created_at, total_avaliacoes=0
     )
 
 
