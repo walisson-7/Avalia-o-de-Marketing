@@ -489,19 +489,20 @@ async function renderRanking(containerId) {
       });
 
       const boxesHtml = critData.map(({ key, label, avg, obsEntries }) => {
-        const hasObs = obsEntries.length > 0;
         return `
-          <div ${hasObs ? `onclick="toggleRankObs('${linkId}','${key}')"` : ''} style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 10px;text-align:center;${hasObs ? 'cursor:pointer' : ''}" title="${hasObs ? 'Clique para ver as observações' : ''}">
+          <div onclick="toggleRankObs('${linkId}','${key}')" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 10px;text-align:center;cursor:pointer" title="Clique para ver as observações">
             <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px">${label}</div>
-            <div style="font-size:18px;font-weight:800;color:var(--brand)${hasObs ? ';text-decoration:underline dotted' : ''}">${avg}</div>
-            <div style="font-size:10px;color:#bbb">média${hasObs ? ' · ver obs' : ''}</div>
+            <div style="font-size:18px;font-weight:800;color:var(--brand);text-decoration:underline dotted">${avg}</div>
+            <div style="font-size:10px;color:#bbb">média · ver obs</div>
           </div>`;
       }).join('');
 
-      const panelsHtml = critData.filter(c => c.obsEntries.length).map(({ key, label, obsEntries }) => `
+      const panelsHtml = critData.map(({ key, label, obsEntries }) => `
         <div id="rankobs-${linkId}-${key}" style="display:none;margin-top:10px;font-size:12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px">
           <div style="font-weight:700;margin-bottom:4px">Observações — ${label}</div>
-          ${obsEntries.map(o => `<div style="margin-top:2px">${o.nome}: "${o.texto}"</div>`).join('')}
+          ${obsEntries.length
+            ? obsEntries.map(o => `<div style="margin-top:2px">${o.nome}: "${o.texto}"</div>`).join('')
+            : '<div style="color:var(--text-muted)">Nenhuma observação registrada neste dispositivo.</div>'}
         </div>`).join('');
 
       return `
