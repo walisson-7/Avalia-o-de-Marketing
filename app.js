@@ -446,7 +446,12 @@ async function deleteAvaliador(id) {
 // ==============================
 async function renderRanking(containerId) {
   try {
-    const ranked = await apiGet('/api/ranking'); // já vem ordenado pela API
+    const [ranked, allLinks, allAvals, avaliadores] = await Promise.all([
+      apiGet('/api/ranking'), // já vem ordenado pela API
+      apiGet('/api/links'),
+      apiGet('/api/avaliacoes'),
+      apiGet('/api/avaliadores'),
+    ]);
     const el = document.getElementById(containerId);
     if (!ranked.length) {
       el.innerHTML = '<div class="empty-state"><svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/></svg><h3>Ranking vazio</h3><p>Nenhum link foi compartilhado ainda</p></div>';
@@ -455,8 +460,50 @@ async function renderRanking(containerId) {
 
     const maxPts = ranked[0].total_pts || 1;
 
+    // Mapa url -> id do link (o /api/ranking pode não trazer o id; usamos a url como chave segura)
+    const idByUrl = {};
+    allLinks.forEach(lk => { idByUrl[lk.url] = lk.id; });
+
     el.innerHTML = ranked.map((l, i) => {
       const posClass = i===0 ? 'pos-1' : i===1 ? 'pos-2' : i===2 ? 'pos-3' : 'pos-other';
+      const linkId = l.id !== undefined ? l.id : idByUrl[l.url];
+
+      // Para cada critério, junta as observações (salvas neste navegador) de quem avaliou este link com nota <= 3
+      const critConfig = [
+        ['precificacao', 'Precificação', l.media_precificacao],
+        ['organizacao', 'Organização', l.media_organizacao],
+        ['execucao', 'Execução', l.media_execucao],
+        ['criatividade', 'Criatividade', l.media_criatividade],
+      ];
+
+      const critData = critConfig.map(([key, label, avg]) => {
+        const obsEntries = linkId === undefined ? [] : allAvals
+          .filter(a => a.link_id === linkId && a[key] <= 3)
+          .map(a => {
+            const av = avaliadores.find(x => x.id === a.avaliador_id);
+            const texto = getObsLocal(a.avaliador_id, linkId, key);
+            return texto ? { nome: av ? av.nome : 'Avaliador', texto } : null;
+          })
+          .filter(Boolean);
+        return { key, label, avg, obsEntries };
+      });
+
+      const boxesHtml = critData.map(({ key, label, avg, obsEntries }) => {
+        const hasObs = obsEntries.length > 0;
+        return `
+          <div ${hasObs ? `onclick="toggleRankObs('${linkId}','${key}')"` : ''} style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 10px;text-align:center;${hasObs ? 'cursor:pointer' : ''}" title="${hasObs ? 'Clique para ver as observações' : ''}">
+            <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px">${label}</div>
+            <div style="font-size:18px;font-weight:800;color:var(--brand)${hasObs ? ';text-decoration:underline dotted' : ''}">${avg}</div>
+            <div style="font-size:10px;color:#bbb">média${hasObs ? ' · ver obs' : ''}</div>
+          </div>`;
+      }).join('');
+
+      const panelsHtml = critData.filter(c => c.obsEntries.length).map(({ key, label, obsEntries }) => `
+        <div id="rankobs-${linkId}-${key}" style="display:none;margin-top:10px;font-size:12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px">
+          <div style="font-weight:700;margin-bottom:4px">Observações — ${label}</div>
+          ${obsEntries.map(o => `<div style="margin-top:2px">${o.nome}: "${o.texto}"</div>`).join('')}
+        </div>`).join('');
+
       return `
       <div class="ranking-item" style="flex-direction:column;align-items:stretch;gap:0;padding:18px 20px">
         <div style="display:flex;align-items:center;gap:14px;margin-bottom:12px">
@@ -475,13 +522,9 @@ async function renderRanking(containerId) {
           <div class="progress-fill" style="width:${maxPts > 0 ? (l.total_pts/maxPts*100) : 0}%"></div>
         </div>
         <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
-          ${[['Precificação', l.media_precificacao],['Organização', l.media_organizacao],['Execução', l.media_execucao],['Criatividade', l.media_criatividade]].map(([label, avg]) => `
-          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 10px;text-align:center">
-            <div style="font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.4px;margin-bottom:4px">${label}</div>
-            <div style="font-size:18px;font-weight:800;color:var(--brand)">${avg}</div>
-            <div style="font-size:10px;color:#bbb">média</div>
-          </div>`).join('')}
+          ${boxesHtml}
         </div>
+        ${panelsHtml}
       </div>`;
     }).join('');
   } catch (e) {
@@ -699,18 +742,27 @@ async function renderAvalLinks() {
 
       let evalSection = '';
       if (alreadyEval) {
-        const obsParts = [];
-        if (myEval.precificacao <= 3 && myEval.obs_precificacao) obsParts.push(`Precificação: "${myEval.obs_precificacao}"`);
-        if (myEval.organizacao <= 3 && myEval.obs_organizacao) obsParts.push(`Organização: "${myEval.obs_organizacao}"`);
-        if (myEval.execucao <= 3 && myEval.obs_execucao) obsParts.push(`Execução: "${myEval.obs_execucao}"`);
-        if (myEval.criatividade <= 3 && myEval.obs_criatividade) obsParts.push(`Criatividade: "${myEval.obs_criatividade}"`);
+        const critList = ['precificacao','organizacao','execucao','criatividade'];
+        // Nota clicável: se a nota for baixa e existir observação salva neste navegador, vira um link clicável
+        const notasHtml = critList.map(crit => {
+          const val = myEval[crit];
+          const obsText = getObsLocal(currentUser.id, l.id, crit);
+          if (val <= 3 && obsText) {
+            return `<span onclick="toggleObs('${l.id}','${crit}')" style="cursor:pointer;text-decoration:underline dotted;font-weight:700;color:var(--brand)" title="Clique para ver a observação">${critLabel(crit)}: ${val}</span>`;
+          }
+          return `${critLabel(crit)}: ${val}`;
+        }).join(', ');
+        const obsBlocks = critList.filter(crit => myEval[crit] <= 3 && getObsLocal(currentUser.id, l.id, crit)).map(crit => `
+          <div id="obsrev-${l.id}-${crit}" style="display:none;margin-top:6px;font-size:12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px">
+            <strong>${critLabel(crit)}:</strong> "${getObsLocal(currentUser.id, l.id, crit)}"
+          </div>`).join('');
         evalSection = `
           <div class="avaliacao-already">
             <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
             Você já avaliou este link! Pontuação: <strong>${myEval.total} pts</strong>
-            (Precificação: ${myEval.precificacao}, Organização: ${myEval.organizacao}, Execução: ${myEval.execucao}, Criatividade: ${myEval.criatividade})
-            ${obsParts.length ? `<div style="margin-top:6px;font-size:12px;opacity:0.85">Observações: ${obsParts.join(' · ')}</div>` : ''}
-          </div>`;
+            (${notasHtml})
+          </div>
+          ${obsBlocks}`;
       } else {
         evalSection = `
           <div class="criteria-grid" id="criteria-${l.id}">
@@ -765,6 +817,31 @@ function critLabel(c) {
   return m[c] || c;
 }
 
+// ==============================
+// OBSERVAÇÕES (salvas no navegador — não depende do backend)
+// ==============================
+function obsLocalKey(avaliadorId, linkId, crit) {
+  return `obs_${avaliadorId}_${linkId}_${crit}`;
+}
+function saveObsLocal(avaliadorId, linkId, crit, texto) {
+  const key = obsLocalKey(avaliadorId, linkId, crit);
+  if (texto) localStorage.setItem(key, texto);
+  else localStorage.removeItem(key);
+}
+function getObsLocal(avaliadorId, linkId, crit) {
+  return localStorage.getItem(obsLocalKey(avaliadorId, linkId, crit)) || '';
+}
+// Alterna a exibição de uma observação (usado na tela de avaliação do avaliador)
+function toggleObs(linkId, crit) {
+  const el = document.getElementById(`obsrev-${linkId}-${crit}`);
+  if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+// Alterna a exibição do painel de observações de um critério no Ranking
+function toggleRankObs(linkId, crit) {
+  const el = document.getElementById(`rankobs-${linkId}-${crit}`);
+  if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+}
+
 window._stars = {};
 
 function setStar(linkId, crit, val) {
@@ -797,6 +874,17 @@ async function submitAvaliacao(linkId) {
     return field ? field.value.trim() : '';
   };
 
+  const obsPrec = getObs('precificacao', prec);
+  const obsOrg = getObs('organizacao', org);
+  const obsExec = getObs('execucao', exec_);
+  const obsCriat = getObs('criatividade', criat);
+
+  // Salva as observações no navegador (não depende do backend salvar essas colunas)
+  saveObsLocal(currentUser.id, linkId, 'precificacao', obsPrec);
+  saveObsLocal(currentUser.id, linkId, 'organizacao', obsOrg);
+  saveObsLocal(currentUser.id, linkId, 'execucao', obsExec);
+  saveObsLocal(currentUser.id, linkId, 'criatividade', obsCriat);
+
   try {
     const nova = await apiPost('/api/avaliacoes', {
       link_id: Number(linkId),
@@ -805,10 +893,10 @@ async function submitAvaliacao(linkId) {
       organizacao: org,
       execucao: exec_,
       criatividade: criat,
-      obs_precificacao: getObs('precificacao', prec),
-      obs_organizacao: getObs('organizacao', org),
-      obs_execucao: getObs('execucao', exec_),
-      obs_criatividade: getObs('criatividade', criat),
+      obs_precificacao: obsPrec,
+      obs_organizacao: obsOrg,
+      obs_execucao: obsExec,
+      obs_criatividade: obsCriat,
     });
     delete window._stars[linkId];
     toast(`Avaliação enviada! +${nova.total} pontos`, 'success');
