@@ -3,11 +3,11 @@
 // ==============================
 const SUPABASE_URL = 'https://geoqnmxovwmhdhfimtrg.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_Tg_US56MvEPoAF0tFfgKpw_7dBp-3-H';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 // Helpers genéricos que imitam o antigo apiGet/apiPost/apiDelete, agora falando com o Supabase
 async function sbSelect(table, { select = '*', filters = [], order = null } = {}) {
-  let q = supabase.from(table).select(select);
+  let q = sb.from(table).select(select);
   filters.forEach(([col, op, val]) => { q = q[op](col, val); });
   if (order) q = q.order(order.column, { ascending: order.ascending !== false });
   const { data, error } = await q;
@@ -15,12 +15,12 @@ async function sbSelect(table, { select = '*', filters = [], order = null } = {}
   return data || [];
 }
 async function sbInsert(table, row) {
-  const { data, error } = await supabase.from(table).insert(row).select().single();
+  const { data, error } = await sb.from(table).insert(row).select().single();
   if (error) throw new Error(error.message || 'Erro ao salvar no banco de dados.');
   return data;
 }
 async function sbDelete(table, id) {
-  const { error } = await supabase.from(table).delete().eq('id', id);
+  const { error } = await sb.from(table).delete().eq('id', id);
   if (error) throw new Error(error.message || 'Erro ao remover do banco de dados.');
 }
 
@@ -534,9 +534,9 @@ function confirmZerarRanking() { openModal('modal-zerar'); }
 
 async function zerarRanking() {
   try {
-    const { error: e1 } = await supabase.from('avaliacoes').delete().gte('id', 0);
+    const { error: e1 } = await sb.from('avaliacoes').delete().gte('id', 0);
     if (e1) throw e1;
-    const { error: e2 } = await supabase.from('links').delete().gte('id', 0);
+    const { error: e2 } = await sb.from('links').delete().gte('id', 0);
     if (e2) throw e2;
     closeModal('modal-zerar');
     toast('Ranking zerado e links apagados com sucesso!', 'success');
