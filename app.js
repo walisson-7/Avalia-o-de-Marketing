@@ -1,38 +1,28 @@
 // ==============================
-// CONFIGURAÇÃO DA API
+// CONFIGURAÇÃO DO SUPABASE
 // ==============================
-// IMPORTANTE: troque pela URL pública do seu backend no Railway.
-// Exemplo: 'https://seu-projeto-production.up.railway.app'
-// (sem barra "/" no final)
-const API_BASE_URL = 'https://avalia-o-de-marketing-production.up.railway.app';
+const SUPABASE_URL = 'https://geoqnmxovwmhdhfimtrg.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_Tg_US56MvEPoAF0tFfgKpw_7dBp-3-H';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-async function apiRequest(path, options = {}) {
-  let res;
-  try {
-    res = await fetch(`${API_BASE_URL}${path}`, {
-      headers: { 'Content-Type': 'application/json' },
-      ...options,
-    });
-  } catch (e) {
-    throw new Error('Não foi possível conectar ao servidor. Verifique sua internet ou se a API está no ar.');
-  }
-  if (!res.ok) {
-    let msg = `Erro ${res.status} ao falar com o servidor.`;
-    try {
-      const err = await res.json();
-      if (err.detail) msg = typeof err.detail === 'string' ? err.detail : msg;
-    } catch (e) { /* corpo vazio ou não-JSON */ }
-    throw new Error(msg);
-  }
-  if (res.status === 204) return null;
-  try { return await res.json(); } catch (e) { return null; }
+// Helpers genéricos que imitam o antigo apiGet/apiPost/apiDelete, agora falando com o Supabase
+async function sbSelect(table, { select = '*', filters = [], order = null } = {}) {
+  let q = supabase.from(table).select(select);
+  filters.forEach(([col, op, val]) => { q = q[op](col, val); });
+  if (order) q = q.order(order.column, { ascending: order.ascending !== false });
+  const { data, error } = await q;
+  if (error) throw new Error(error.message || 'Erro ao consultar o banco de dados.');
+  return data || [];
 }
-
-function apiGet(path) { return apiRequest(path); }
-function apiPost(path, body) {
-  return apiRequest(path, { method: 'POST', body: body !== undefined ? JSON.stringify(body) : undefined });
+async function sbInsert(table, row) {
+  const { data, error } = await supabase.from(table).insert(row).select().single();
+  if (error) throw new Error(error.message || 'Erro ao salvar no banco de dados.');
+  return data;
 }
-function apiDelete(path) { return apiRequest(path, { method: 'DELETE' }); }
+async function sbDelete(table, id) {
+  const { error } = await supabase.from(table).delete().eq('id', id);
+  if (error) throw new Error(error.message || 'Erro ao remover do banco de dados.');
+}
 
 function formatDate(iso) {
   if (!iso) return '';
@@ -61,7 +51,14 @@ async function doLogin() {
   if (!user || !pass) { errEl.textContent = 'Preencha usuário e senha.'; return; }
 
   try {
-    const data = await apiPost('/api/login', { username: user, password: pass });
+    const { data, error } = await supabase
+      .from('avaliadores')
+      .select('id, nome, username, role')
+      .eq('username', user)
+      .eq('password', pass)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) { errEl.textContent = 'Usuário ou senha incorretos.'; return; }
     currentUser = { id: data.id, name: data.nome, username: data.username, role: data.role };
     document.getElementById('login-screen').style.display = 'none';
     document.getElementById('app').style.display = 'block';
@@ -69,7 +66,7 @@ async function doLogin() {
     if (currentUser.role === 'analista') navigateTo('dashboard');
     else navigateTo('aval-dashboard');
   } catch (e) {
-    errEl.textContent = e.message || 'Usuário ou senha incorretos.';
+    errEl.textContent = 'Usuário ou senha incorretos.';
   }
 }
 
@@ -177,9 +174,9 @@ function calcHasEvaluated(avals, userId, linkId) { return avals.some(a => a.aval
 async function renderDashboard() {
   try {
     const [avaliadores, links, avals] = await Promise.all([
-      apiGet('/api/avaliadores'),
-      apiGet('/api/links'),
-      apiGet('/api/avaliacoes'),
+      sbSelect('avaliadores', { select: 'id, nome', filters: [['role', 'eq', 'avaliador']] }),
+      sbSelect('links', { select: 'id' }),
+      sbSelect('avaliacoes'),
     ]);
 
     const respondidos = avaliadores.filter(av => avals.some(a => a.avaliador_id === av.id));
@@ -255,7 +252,7 @@ async function saveAtividade() {
   const desc = document.getElementById('ativ-desc').value.trim();
   if (!semana || !titulo) { toast('Preencha semana e título', 'error'); return; }
   try {
-    await apiPost(`/api/atividades?criado_por=${currentUser.id}`, { semana, titulo, descricao: desc || null });
+    await sbInsert('atividades', { semana, titulo, descricao: desc || null, criado_por: currentUser.id });
     document.getElementById('ativ-semana').value = '';
     document.getElementById('ativ-titulo').value = '';
     document.getElementById('ativ-desc').value = '';
@@ -268,7 +265,7 @@ async function saveAtividade() {
 
 async function renderAtividades() {
   try {
-    const atividades = await apiGet('/api/atividades');
+    const atividades = await sbSelect('atividades', { order: { column: 'created_at', ascending: false } });
     window._atividadesCache = atividades;
     const el = document.getElementById('atividades-list');
     if (!atividades.length) {
@@ -293,7 +290,7 @@ async function renderAtividades() {
 
 async function deleteAtividade(id) {
   try {
-    await apiDelete(`/api/atividades/${id}`);
+    await sbDelete('atividades', id);
     renderAtividades();
     toast('Atividade removida', 'info');
   } catch (e) {
@@ -321,7 +318,7 @@ async function renderLinksDoAtividadeModal() {
   const el = document.getElementById('atd-links-list');
   el.innerHTML = '<div style="font-size:13px;color:var(--text-muted);padding:8px 0">Carregando...</div>';
   try {
-    const links = await apiGet('/api/links');
+    const links = await sbSelect('links', { filters: [['semana','eq',currentAtividadeDetail.semana]] });
     const filtered = links.filter(l => l.semana === currentAtividadeDetail.semana);
     if (!filtered.length) {
       el.innerHTML = '<div style="font-size:13px;color:var(--text-muted);padding:12px 0">Nenhum link adicionado ainda nesta atividade.</div>';
@@ -349,7 +346,7 @@ async function saveLinkParaAtividade() {
   if (!titulo || !url) { toast('Preencha título e URL do link', 'error'); return; }
   try {
     // semana é herdada automaticamente da atividade (não aparece campo para o usuário)
-    await apiPost(`/api/links?criado_por=${currentUser.id}`, { semana: currentAtividadeDetail.semana, titulo, url });
+    await sbInsert('links', { semana: currentAtividadeDetail.semana, titulo, url, criado_por: currentUser.id });
     document.getElementById('atd-link-titulo').value = '';
     document.getElementById('atd-link-url').value = '';
     toast('Link adicionado à atividade!', 'success');
@@ -361,7 +358,7 @@ async function saveLinkParaAtividade() {
 
 async function deleteLinkDoAtividadeModal(id) {
   try {
-    await apiDelete(`/api/links/${id}`);
+    await sbDelete('links', id);
     toast('Link removido', 'info');
     renderLinksDoAtividadeModal();
   } catch (e) {
@@ -378,7 +375,7 @@ async function saveAvaliador() {
   const password = document.getElementById('aval-pass').value.trim();
   if (!nome || !username || !password) { toast('Preencha todos os campos', 'error'); return; }
   try {
-    await apiPost('/api/avaliadores', { nome, username, password });
+    await sbInsert('avaliadores', { nome, username, password, role: 'avaliador' });
     document.getElementById('aval-nome').value = '';
     document.getElementById('aval-user').value = '';
     document.getElementById('aval-pass').value = '';
@@ -391,7 +388,7 @@ async function saveAvaliador() {
 
 async function renderAvaliadores() {
   try {
-    const avaliadores = await apiGet('/api/avaliadores');
+    const avaliadores = await sbSelect('avaliadores_view', { filters: [['role','eq','avaliador']], order: { column: 'nome' } });
     const statsEl = document.getElementById('aval-stats');
     statsEl.innerHTML = `
       <div class="stat-card highlight">
@@ -433,7 +430,7 @@ async function renderAvaliadores() {
 
 async function deleteAvaliador(id) {
   try {
-    await apiDelete(`/api/avaliadores/${id}`);
+    await sbDelete('avaliadores', id);
     renderAvaliadores();
     toast('Avaliador removido', 'info');
   } catch (e) {
@@ -447,10 +444,10 @@ async function deleteAvaliador(id) {
 async function renderRanking(containerId) {
   try {
     const [ranked, allLinks, allAvals, avaliadores] = await Promise.all([
-      apiGet('/api/ranking'), // já vem ordenado pela API
-      apiGet('/api/links'),
-      apiGet('/api/avaliacoes'),
-      apiGet('/api/avaliadores'),
+      sbSelect('ranking_view', { order: { column: 'total_pts', ascending: false } }),
+      sbSelect('links'),
+      sbSelect('avaliacoes'),
+      sbSelect('avaliadores', { select: 'id, nome' }),
     ]);
     const el = document.getElementById(containerId);
     if (!ranked.length) {
@@ -481,7 +478,7 @@ async function renderRanking(containerId) {
           .filter(a => a.link_id === linkId && a[key] <= 3)
           .map(a => {
             const av = avaliadores.find(x => x.id === a.avaliador_id);
-            const texto = getObsLocal(a.avaliador_id, linkId, key);
+            const texto = getObsText(a, a.avaliador_id, linkId, key);
             return texto ? { nome: av ? av.nome : 'Avaliador', texto } : null;
           })
           .filter(Boolean);
@@ -502,7 +499,7 @@ async function renderRanking(containerId) {
           <div style="font-weight:700;margin-bottom:4px">Observações — ${label}</div>
           ${obsEntries.length
             ? obsEntries.map(o => `<div style="margin-top:2px">${o.nome}: "${o.texto}"</div>`).join('')
-            : '<div style="color:var(--text-muted)">Nenhuma observação registrada neste dispositivo.</div>'}
+            : '<div style="color:var(--text-muted)">Nenhuma observação registrada para este critério.</div>'}
         </div>`).join('');
 
       return `
@@ -537,7 +534,10 @@ function confirmZerarRanking() { openModal('modal-zerar'); }
 
 async function zerarRanking() {
   try {
-    await apiPost('/api/ranking/zerar');
+    const { error: e1 } = await supabase.from('avaliacoes').delete().gte('id', 0);
+    if (e1) throw e1;
+    const { error: e2 } = await supabase.from('links').delete().gte('id', 0);
+    if (e2) throw e2;
     closeModal('modal-zerar');
     toast('Ranking zerado e links apagados com sucesso!', 'success');
     renderRanking('ranking-list-analista');
@@ -554,9 +554,9 @@ async function renderAvalDashboard() {
   document.getElementById('aval-welcome').textContent = `Olá, ${currentUser.name}! 👋`;
   try {
     const [links, avals, atividades] = await Promise.all([
-      apiGet('/api/links'),
-      apiGet(`/api/avaliacoes?avaliador_id=${currentUser.id}`),
-      apiGet('/api/atividades'),
+      sbSelect('links', { select: 'id' }),
+      sbSelect('avaliacoes', { filters: [['avaliador_id', 'eq', currentUser.id]] }),
+      sbSelect('atividades', { order: { column: 'created_at', ascending: false } }),
     ]);
     const pendentes = links.filter(l => !avals.some(a => a.link_id === l.id));
     const myScore = avals.reduce((s, a) => s + (a.total || 0), 0);
@@ -604,7 +604,7 @@ async function renderAvalDashboard() {
 // ==============================
 async function renderAvalTarefas() {
   try {
-    const atividades = await apiGet('/api/atividades');
+    const atividades = await sbSelect('atividades', { order: { column: 'created_at', ascending: false } });
     window._avalAtividadesCache = atividades;
     const el = document.getElementById('aval-tarefas-list');
     if (!atividades.length) {
@@ -659,7 +659,7 @@ async function renderAvalLinksView() {
   document.getElementById('avlv-titulo').textContent = a.titulo;
   document.getElementById('avlv-semana').textContent = a.semana + (a.descricao ? ' · ' + a.descricao : '');
   try {
-    const links = await apiGet('/api/links');
+    const links = await sbSelect('links', { filters: [['semana','eq', a.semana]] });
     const filtered = links.filter(l => l.semana === a.semana);
     window._avlvLinks = filtered;
     const vistos = filtered.filter(l => isLinkVisto(l.id));
@@ -723,13 +723,12 @@ async function renderAvalLinks() {
   }
 
   try {
-    const [allLinks, myAvals] = await Promise.all([
-      apiGet('/api/links'),
-      apiGet(`/api/avaliacoes?avaliador_id=${currentUser.id}`),
+    const [links, myAvals] = await Promise.all([
+      currentAvalAtividade
+        ? sbSelect('links', { filters: [['semana', 'eq', currentAvalAtividade.semana]] })
+        : sbSelect('links'),
+      sbSelect('avaliacoes', { filters: [['avaliador_id', 'eq', currentUser.id]] }),
     ]);
-    const links = currentAvalAtividade
-      ? allLinks.filter(l => l.semana === currentAvalAtividade.semana)
-      : allLinks;
 
     const el = document.getElementById('aval-links-list');
     if (!links.length) {
@@ -747,15 +746,15 @@ async function renderAvalLinks() {
         // Nota clicável: se a nota for baixa e existir observação salva neste navegador, vira um link clicável
         const notasHtml = critList.map(crit => {
           const val = myEval[crit];
-          const obsText = getObsLocal(currentUser.id, l.id, crit);
+          const obsText = getObsText(myEval, currentUser.id, l.id, crit);
           if (val <= 3 && obsText) {
             return `<span onclick="toggleObs('${l.id}','${crit}')" style="cursor:pointer;text-decoration:underline dotted;font-weight:700;color:var(--brand)" title="Clique para ver a observação">${critLabel(crit)}: ${val}</span>`;
           }
           return `${critLabel(crit)}: ${val}`;
         }).join(', ');
-        const obsBlocks = critList.filter(crit => myEval[crit] <= 3 && getObsLocal(currentUser.id, l.id, crit)).map(crit => `
+        const obsBlocks = critList.filter(crit => myEval[crit] <= 3 && getObsText(myEval, currentUser.id, l.id, crit)).map(crit => `
           <div id="obsrev-${l.id}-${crit}" style="display:none;margin-top:6px;font-size:12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px">
-            <strong>${critLabel(crit)}:</strong> "${getObsLocal(currentUser.id, l.id, crit)}"
+            <strong>${critLabel(crit)}:</strong> "${getObsText(myEval, currentUser.id, l.id, crit)}"
           </div>`).join('');
         evalSection = `
           <div class="avaliacao-already">
@@ -832,6 +831,12 @@ function saveObsLocal(avaliadorId, linkId, crit, texto) {
 function getObsLocal(avaliadorId, linkId, crit) {
   return localStorage.getItem(obsLocalKey(avaliadorId, linkId, crit)) || '';
 }
+// Prioriza a observação vinda do banco (avaliacoes.obs_*, agora persistida de verdade);
+// cai pro localStorage só como fallback de avaliações feitas antes da migração pro Supabase
+function getObsText(avaliacaoRow, avaliadorId, linkId, crit) {
+  if (avaliacaoRow && avaliacaoRow['obs_' + crit]) return avaliacaoRow['obs_' + crit];
+  return getObsLocal(avaliadorId, linkId, crit);
+}
 // Alterna a exibição de uma observação (usado na tela de avaliação do avaliador)
 function toggleObs(linkId, crit) {
   const el = document.getElementById(`obsrev-${linkId}-${crit}`);
@@ -887,7 +892,7 @@ async function submitAvaliacao(linkId) {
   saveObsLocal(currentUser.id, linkId, 'criatividade', obsCriat);
 
   try {
-    const nova = await apiPost('/api/avaliacoes', {
+    const nova = await sbInsert('avaliacoes', {
       link_id: Number(linkId),
       avaliador_id: currentUser.id,
       precificacao: prec,
