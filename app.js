@@ -51,7 +51,7 @@ async function doLogin() {
   if (!user || !pass) { errEl.textContent = 'Preencha usuário e senha.'; return; }
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await sb
       .from('avaliadores')
       .select('id, nome, username, role')
       .eq('username', user)
