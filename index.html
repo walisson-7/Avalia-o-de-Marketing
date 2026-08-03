@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Sistema de Avaliação — Marketing</title>
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="shortcut icon" href="favicon.ico">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -401,7 +403,7 @@ window.buildSidebar = function() {
     buildBottomNav(currentUser.role);
     // Avatar na topbar
     const mAvatar = document.getElementById('mobile-avatar');
-    if (mAvatar) mAvatar.textContent = currentUser.nome.charAt(0).toUpperCase();
+    if (mAvatar) mAvatar.textContent = currentUser.name.charAt(0).toUpperCase();
   }
 };
 
